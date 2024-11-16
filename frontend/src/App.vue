@@ -22,7 +22,7 @@
           兌換
         </button>
       </div>
-      <div v-if="ethToTimeCoinInputBox" >
+      <div v-if="ethToTimeCoinInputBox">
         ETH 數量:<input type="number" v-model="eth">
         <button @click="ethToTimeCoin">確認</button>
       </div>
@@ -91,7 +91,7 @@ export default {
         const response = await axios.post('http://localhost:3000/check-user', {
           walletAddress: this.walletAddress
         });
-        
+
         // 設定 userInfo 並顯示歡迎信息
         this.userInfo = response.data;
         if (response.data.isNewUser) {
@@ -107,23 +107,32 @@ export default {
     toggleBalanceVisibility() {
       this.showBalance = !this.showBalance;
     },
-    openETHToTimeCoinInputBox(){
+    openETHToTimeCoinInputBox() {
       this.ethToTimeCoinInputBox = !this.ethToTimeCoinInputBox;
       this.eth = null
     },
-    ethToTimeCoin(){
-      // 比值 1 ETH = 10000 Time Coin
-      const ratio = 10000;
-      // call 合約 成功後 寫入 DB
-      console.log(this.eth * ratio)
+    async ethToTimeCoin() {
+      try {
+        const amountToSend = this.web3.utils.toWei(this.eth.toString(), "ether"); // 發送 1 ETH
+        console.log(amountToSend)
+
+        const receipt = await this.contract.methods.buyTokens().send({
+          from: this.walletAddress,
+          value: amountToSend,
+        });
+
+        console.log("購買成功:", receipt);
+      } catch (error) {
+        console.error("購買代幣失敗:", error.message);
+      }
     },
     async initContract() {
       // 假設智能合約地址與 ABI
-      const contractAddress = '0xA62b4B395E8F01f0D2943a45c4220f74837d1971';
+      const contractAddress = '0x288a537992Cf17FBD468E03B88d9B17fcdf356E2';
       this.contract = new this.web3.eth.Contract(contractABI, contractAddress);
 
-      // 呼叫 getPrizePool 方法來取得獎金池金額
-      const prizePoolWei = await this.contract.methods.getPrizePool().call();
+      // 呼叫 getContractBalance 方法來取得獎金池金額
+      const prizePoolWei = await this.contract.methods.getContractBalance().call();
       this.prizePool = this.web3.utils.fromWei(prizePoolWei, 'ether');
 
       console.log("Prize Pool:", this.prizePool);
