@@ -12,6 +12,36 @@ app.get('/', (req, res) => {
   res.send('Node.js 和 MySQL 已成功連接');
 });
 
+// 查詢 Buyer 的 TimeCoin API
+app.get('/getTimeCoin', (req, res) => {
+  const buyer = req.query.buyer; // 從請求參數中獲取 buyer 地址
+
+  if (!buyer) {
+      return res.status(400).json({ error: 'Missing buyer parameter' });
+  }
+
+  const querySql = `
+      SELECT TimeCoin
+      FROM UserInfo
+      WHERE WalletAddress = ?
+  `;
+
+  db.query(querySql, [buyer], (err, result) => {
+      if (err) {
+          console.error('查詢 TimeCoin 失敗：', err);
+          return res.status(500).json({ error: 'Database query error' });
+      }
+
+      if (result.length > 0) {
+          // 返回 TimeCoin 值
+          res.json({ buyer, timeCoin: result[0].TimeCoin });
+      } else {
+          // 找不到資料
+          res.status(404).json({ error: 'Buyer not found', buyer });
+      }
+  });
+});
+
 app.post('/check-user', (req, res) => {
   const { walletAddress } = req.body;
   const query = 'SELECT * FROM UserInfo WHERE WalletAddress = ?';

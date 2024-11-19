@@ -1,7 +1,6 @@
 // @ts-ignore
 const dotenv = require('dotenv');
 
-
 dotenv.config();
 
 const mysql = require('mysql2');
@@ -17,27 +16,45 @@ const db = mysql.createConnection({
 
 // 設定 Web3 和合約資訊
 const { Web3 } = require('web3');
-const web3 = new Web3("wss://sepolia.infura.io/v3/1eb05ea628ac4f55b5543cb60a084c43"); // 換成你的 Infura 或本地節點地址
-const contractAddress = "0x288a537992Cf17FBD468E03B88d9B17fcdf356E2"; // 智能合約地址
+
+// Infura 提供的 Sepolia 節點 URL（替換 YOUR_PROJECT_ID）
+const INFURA_URL = 'wss://sepolia.infura.io/ws/v3/1eb05ea628ac4f55b5543cb60a084c43';
+
+// 初始化 Web3
+const web3 = new Web3(INFURA_URL);
+
+// 測試連接
+web3.eth.getBlockNumber()
+    .then(blockNumber => console.log(`Current block number: ${blockNumber}`))
+    .catch(error => console.error(`Error: ${error}`));
+const contractAddress = "0x137D2bf0f51AC3956f0324E958221B252a2a8EFb"; // 智能合約地址
 const contractABI = require("./contract/time.json"); // 載入合約的 ABI
 
 const contract = new web3.eth.Contract(contractABI, contractAddress);
-console.log("Available events:", Object.keys(contract.events));
 
-if (contract.events.TokensPurchased) {
-  contract.events.TokensPurchased({
-    fromBlock: "latest"
-  })
-    .on("data", (event) => {
-      console.log("TokensPurchased 事件觸發：", event);
-      const { buyer, ethAmount, tokenAmount } = event.returnValues;
-      console.log(`買家地址: ${buyer}`);
-      console.log(`ETH 數量: ${web3.utils.fromWei(ethAmount, "ether")} ETH`);
-      console.log(`代幣數量: ${tokenAmount}`);
+// 監聽購買代幣的事件
+contract.events.TokensPurchased()
+    .on('data', event => {
+        console.log(event) // 可拔
+        const weiToEth = web3.utils.fromWei(event.returnValues.ethAmount, 'ether');
+        const timeCoin = weiToEth * 10000
+        const buyer = event.returnValues.buyer;
+
+        // 更新資料表中對應的 buyer 資料
+        const updateSql = `
+            UPDATE UserInfo
+            SET TimeCoin = TimeCoin + ?
+            WHERE WalletAddress = ?
+        `;
+
+        db.query(updateSql, [timeCoin, buyer], (err, result) => {
+            if (err) {
+                console.error('更新 UserInfo 失敗:', err);
+            } else {
+                console.log(`UserInfo 資料表已更新，受影響行數: ${result.affectedRows}`);
+            }
+        });
     });
-} else {
-  console.error("TokensPurchased 事件不可用！");
-}
 
 // 連接到資料庫
 db.connect((err) => {

@@ -116,19 +116,24 @@ export default {
         const amountToSend = this.web3.utils.toWei(this.eth.toString(), "ether"); // 發送 1 ETH
         console.log(amountToSend)
 
-        const receipt = await this.contract.methods.buyTokens().send({
+        await this.contract.methods.buyTokens().send({
           from: this.walletAddress,
           value: amountToSend,
-        });
-
-        console.log("購買成功:", receipt);
+        }).then(async rs => {
+          const response = await axios.get('http://localhost:3000/getTimeCoin', {
+            params: { buyer: rs.from },
+          });
+          console.log(response.data.timeCoin);
+          this.userInfo.timeCoin = response.data.timeCoin;
+        }
+        )
       } catch (error) {
         console.error("購買代幣失敗:", error.message);
       }
     },
     async initContract() {
       // 假設智能合約地址與 ABI
-      const contractAddress = '0x288a537992Cf17FBD468E03B88d9B17fcdf356E2';
+      const contractAddress = '0x137D2bf0f51AC3956f0324E958221B252a2a8EFb';
       this.contract = new this.web3.eth.Contract(contractABI, contractAddress);
 
       // 呼叫 getContractBalance 方法來取得獎金池金額
