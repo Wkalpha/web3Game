@@ -17,34 +17,59 @@ app.get('/getTimeCoin', (req, res) => {
   const buyer = req.query.buyer; // 從請求參數中獲取 buyer 地址
 
   if (!buyer) {
-      return res.status(400).json({ error: 'Missing buyer parameter' });
+    return res.status(400).json({ error: 'Missing buyer parameter' });
   }
 
   const querySql = `
-      SELECT TimeCoin
+      SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin
       FROM UserInfo
       WHERE WalletAddress = ?
   `;
 
   db.query(querySql, [buyer], (err, result) => {
-      if (err) {
-          console.error('查詢 TimeCoin 失敗：', err);
-          return res.status(500).json({ error: 'Database query error' });
-      }
+    if (err) {
+      console.error('查詢 TimeCoin 失敗：', err);
+      return res.status(500).json({ error: 'Database query error' });
+    }
 
-      if (result.length > 0) {
-          // 返回 TimeCoin 值
-          res.json({ buyer, timeCoin: result[0].TimeCoin });
-      } else {
-          // 找不到資料
-          res.status(404).json({ error: 'Buyer not found', buyer });
-      }
+    if (result.length > 0) {
+      // 返回 TimeCoin 值
+      res.json({ buyer, timeCoin: result[0].AdjustedTimeCoin });
+    } else {
+      // 找不到資料
+      res.status(404).json({ error: 'Buyer not found', buyer });
+    }
   });
 });
 
+// 查詢 Prize Pool
+app.get('/getPrizePool', (req, res) => {
+  const querySql = `
+      SELECT FLOOR(Amount * 10000) AS AdjustedAmount
+      FROM PrizePool
+      WHERE ID = 1
+  `;
+
+  db.query(querySql, (err, result) => {
+    if (err) {
+      console.error('查詢 Amount 失敗：', err);
+      return res.status(500).json({ error: 'Database query error', details: err.message });
+    }
+
+    if (result.length > 0) {
+      // 返回成功的 JSON 結果
+      res.json({ amount: result[0].AdjustedAmount });
+    } else {
+      // 查詢成功但無資料
+      res.status(204).send(); // No Content
+    }
+  });
+});
+
+
 app.post('/check-user', (req, res) => {
   const { walletAddress } = req.body;
-  const query = 'SELECT * FROM UserInfo WHERE WalletAddress = ?';
+  const query = 'SELECT *, FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?';
 
   // 查詢資料庫
   db.query(query, [walletAddress], (err, results) => {
@@ -79,13 +104,77 @@ app.post('/check-user', (req, res) => {
       res.json({
         isNewUser: false,
         walletAddress: userInfo.WalletAddress,
-        timeCoin: userInfo.TimeCoin,
-        createdAt: userInfo.CreatedAt,
-        creator: userInfo.Creator
+        timeCoin: userInfo.AdjustedTimeCoin,
       });
     }
   });
 });
+
+// 更新用戶的Time Coin
+app.post('/update-balance', (req, res) => {
+  const { walletAddress, amountChange } = req.body;
+
+  if (!walletAddress || amountChange === undefined) {
+    return res.status(400).json({ error: 'Missing walletAddress or amountChange' });
+  }
+
+  // 查詢用戶是否存在
+  const querySelect = `SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`;
+  db.query(querySelect, [walletAddress], (selectErr, results) => {
+    if (selectErr) {
+      console.error('查詢用戶失敗：', selectErr);
+      return res.status(500).json({ error: 'Database query error' });
+    }
+
+    if (results.length === 0) {
+      // 用戶不存在
+      return res.status(404).json({ error: 'User not found', walletAddress });
+    }
+
+    // 更新 TimeCoin
+    const currentBalance = results[0].AdjustedTimeCoin;
+    const newBalance = currentBalance + amountChange;
+
+    if (newBalance < 0) {
+      return res.status(400).json({ error: 'Insufficient balance', currentBalance });
+    }
+
+    const queryUpdate = `
+      UPDATE UserInfo
+      SET TimeCoin = ?
+      WHERE WalletAddress = ?
+    `;
+    db.query(queryUpdate, [newBalance, walletAddress], (updateErr) => {
+      if (updateErr) {
+        console.error('更新用戶餘額失敗：', updateErr);
+        return res.status(500).json({ error: 'Database update error' });
+      }
+
+      res.json({
+        success: true,
+        walletAddress,
+        updatedBalance: newBalance,
+      });
+    });
+
+    // 更新獎金池
+    const queryUpdatePrizePool = `
+      UPDATE PrizePool
+      SET Amount = Amount - (?/10000)
+      WHERE ID = 1
+    `;
+
+    db.query(queryUpdatePrizePool, [amountChange], (err, result) => {
+      if (err) {
+        console.error('更新 Prize Pool 失敗:', err);
+      } else {
+        console.log(`Prize Pool 資料表已更新，受影響行數: ${result.affectedRows}`);
+      }
+    });
+
+  });
+});
+
 
 
 // 啟動伺服器

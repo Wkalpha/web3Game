@@ -41,17 +41,32 @@ contract.events.TokensPurchased()
         const buyer = event.returnValues.buyer;
 
         // 更新資料表中對應的 buyer 資料
-        const updateSql = `
+        const updateUserTimeCoinSql = `
             UPDATE UserInfo
             SET TimeCoin = TimeCoin + ?
             WHERE WalletAddress = ?
         `;
 
-        db.query(updateSql, [timeCoin, buyer], (err, result) => {
+        db.query(updateUserTimeCoinSql, [timeCoin, buyer], (err, result) => {
             if (err) {
                 console.error('更新 UserInfo 失敗:', err);
             } else {
                 console.log(`UserInfo 資料表已更新，受影響行數: ${result.affectedRows}`);
+            }
+        });
+
+        // 更新 Prize Pool 資料
+        const updatePrizePoolSql = `
+            UPDATE PrizePool
+            SET Amount = Amount + ?
+            WHERE ID = 1
+        `;
+
+        db.query(updatePrizePoolSql, [weiToEth], (err, result) => {
+            if (err) {
+                console.error('更新 Prize Pool 失敗:', err);
+            } else {
+                console.log(`Prize Pool 資料表已更新，受影響行數: ${result.affectedRows}`);
             }
         });
     });

@@ -14,7 +14,7 @@
         </button>
       </p>
       <p>
-        獎金池: {{ prizePool * 10000 }} Time Coin
+        獎金池: {{ prizePool }} Time Coin
       </p>
       <div v-if="userInfo">
         Time Coin:{{ userInfo.timeCoin }}
@@ -23,9 +23,11 @@
         </button>
       </div>
       <div v-if="ethToTimeCoinInputBox">
-        ETH 數量:<input type="number" v-model="eth">
+        ETH 數量(最少0.001):<input type="number" v-model="eth">
         <button @click="ethToTimeCoin">確認</button>
       </div>
+      <!-- 遊戲 -->
+      <TimeSniper :user-balance="userInfo.timeCoin" @game-result="handleGameResult" />
     </div>
   </div>
 </template>
@@ -35,9 +37,14 @@
 import Web3 from 'web3';
 import contractABI from '../contract/time.json'
 import axios from 'axios';
+import TimeSniper from '../src/components/TimeSniper.vue';
 
 export default {
   name: 'App',
+  components: {
+    // GuessNumber,
+    TimeSniper
+  },
   data() {
     return {
       web3: null,
@@ -47,7 +54,9 @@ export default {
       wallet_connected: false,
       showBalance: false, // 控制餘額是否顯示
       prizePool: null,
-      userInfo: null,
+      userInfo: {
+        timeCoin: 0
+      },
       ethToTimeCoinInputBox: false,
       eth: null
     };
@@ -78,6 +87,7 @@ export default {
             await this.checkUserInfo();
 
             await this.initContract(); // 連結錢包後初始化合約
+            await this.getPrizePool();
           }
         } catch (error) {
           console.error('連結錢包失敗：', error);
@@ -99,9 +109,27 @@ export default {
         } else {
           alert(`歡迎回來, ${response.data.walletAddress}!`);
         }
-        console.log(this.userInfo)
       } catch (error) {
         console.error("檢查用戶信息失敗:", error);
+      }
+    },
+    // 處理子組件的事件
+    async handleGameResult({ amountChange }) {
+      // 更新資料庫
+      try {
+        const response = await axios.post('http://localhost:3000/update-balance', {
+          walletAddress: this.walletAddress, // 替換為實際錢包地址
+          amountChange,
+        });
+
+        // 更新前端餘額
+        this.userBalance += amountChange;
+        
+        this.userInfo.timeCoin = response.data.updatedBalance
+        await this.getPrizePool();
+
+      } catch (error) {
+        console.error('更新餘額失敗:', error);
       }
     },
     toggleBalanceVisibility() {
@@ -113,8 +141,13 @@ export default {
     },
     async ethToTimeCoin() {
       try {
-        const amountToSend = this.web3.utils.toWei(this.eth.toString(), "ether"); // 發送 1 ETH
-        console.log(amountToSend)
+        // 檢查輸入值是否至少為 0.001
+        if (!this.eth || this.eth < 0.001) {
+          alert("輸入的 ETH 數量必須至少為 0.001");
+          return; // 終止執行
+        }
+
+        const amountToSend = this.web3.utils.toWei(this.eth.toString(), "ether");
 
         await this.contract.methods.buyTokens().send({
           from: this.walletAddress,
@@ -123,8 +156,12 @@ export default {
           const response = await axios.get('http://localhost:3000/getTimeCoin', {
             params: { buyer: rs.from },
           });
-          console.log(response.data.timeCoin);
           this.userInfo.timeCoin = response.data.timeCoin;
+
+          await this.getPrizePool();
+
+          const balanceWei = await this.web3.eth.getBalance(this.walletAddress);
+          this.balance = this.web3.utils.fromWei(balanceWei, 'ether');
         }
         )
       } catch (error) {
@@ -132,16 +169,13 @@ export default {
       }
     },
     async initContract() {
-      // 假設智能合約地址與 ABI
+      // 智能合約地址與 ABI
       const contractAddress = '0x137D2bf0f51AC3956f0324E958221B252a2a8EFb';
       this.contract = new this.web3.eth.Contract(contractABI, contractAddress);
-
-      // 呼叫 getContractBalance 方法來取得獎金池金額
-      const prizePoolWei = await this.contract.methods.getContractBalance().call();
-      this.prizePool = this.web3.utils.fromWei(prizePoolWei, 'ether');
-
-      console.log("Prize Pool:", this.prizePool);
-
+    },
+    async getPrizePool() {
+      const response = await axios.get('http://localhost:3000/getPrizePool');
+      this.prizePool = response.data.amount
     }
   },
 };
