@@ -27,7 +27,8 @@ const web3 = new Web3(INFURA_URL);
 web3.eth.getBlockNumber()
     .then(blockNumber => console.log(`Current block number: ${blockNumber}`))
     .catch(error => console.error(`Error: ${error}`));
-const contractAddress = "0x137D2bf0f51AC3956f0324E958221B252a2a8EFb"; // 智能合約地址
+// const contractAddress = "0x137D2bf0f51AC3956f0324E958221B252a2a8EFb"; // 智能合約地址
+const contractAddress = process.env.Web3ContractAddress;
 const contractABI = require("./contract/time.json"); // 載入合約的 ABI
 
 const contract = new web3.eth.Contract(contractABI, contractAddress);
