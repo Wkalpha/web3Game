@@ -49,6 +49,7 @@ export default {
     return {
       difficulty: null,
       betAmount: null,
+      odds: 0,
       betAmountError: '',
       gameStarted: false,
       targetTime: null,
@@ -75,7 +76,7 @@ export default {
     },
     balanceChange() {
       if (this.totalScore >= 60) {
-        return `獲得 ${this.betAmount} Time Coin`
+        return `獲得 ${this.betAmount * this.odds} Time Coin`
       }
       else {
         return `失去 ${this.betAmount} Time Coin`
@@ -93,6 +94,9 @@ export default {
       }
       this.betAmountError = '';
       this.gameStarted = true;
+
+      // 通知父組件
+      this.$emit('game-start', { amountChange: this.betAmount });
     },
     getTargetTime() {
       this.targetTime = parseFloat((Math.random() * 9 + 1).toFixed(2));
@@ -123,11 +127,23 @@ export default {
     },
     finishGame() {
       const result = this.totalScore >= 60 ? 'win' : 'lose';
-      const amountChange = result === 'win' ? this.betAmount : -this.betAmount;
+
+      switch (this.difficulty) {
+        case 'Easy':
+          this.odds = 0.01;
+          break;
+        case 'Normal':
+          this.odds = 0.03;
+          break;
+        case 'Hard':
+          this.odds = 0.1;
+          break;
+        default:
+          break;
+      }
 
       // 通知父組件
-      this.$emit('game-result', { amountChange });
-      // console.log('Game Over', amountChange)
+      this.$emit('game-result', { result, betAmount:this.betAmount, odds:this.odds });
     },
     resetGame() {
       this.difficulty = null;

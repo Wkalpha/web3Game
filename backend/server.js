@@ -12,94 +12,58 @@ app.get('/', (req, res) => {
   res.send('Node.js 和 MySQL 已成功連接');
 });
 
-// 查詢 Buyer 的 TimeCoin API
-app.get('/getTimeCoin', (req, res) => {
-  const buyer = req.query.buyer; // 從請求參數中獲取 buyer 地址
-
+// 🟢 查詢用戶 TimeCoin
+app.get('/getTimeCoin', async (req, res) => {
+  const buyer = req.query.buyer;
   if (!buyer) {
     return res.status(400).json({ error: 'Missing buyer parameter' });
   }
 
-  const querySql = `
-      SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin
-      FROM UserInfo
-      WHERE WalletAddress = ?
-  `;
-
-  db.query(querySql, [buyer], (err, result) => {
-    if (err) {
-      console.error('查詢 TimeCoin 失敗：', err);
-      return res.status(500).json({ error: 'Database query error' });
-    }
-
-    if (result.length > 0) {
-      // 返回 TimeCoin 值
-      res.json({ buyer, timeCoin: result[0].AdjustedTimeCoin });
+  try {
+    const [results] = await db.execute(`SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [buyer]);
+    if (results.length > 0) {
+      res.json({ buyer, timeCoin: results[0].AdjustedTimeCoin });
     } else {
-      // 找不到資料
       res.status(404).json({ error: 'Buyer not found', buyer });
     }
-  });
+  } catch (err) {
+    console.error('查詢 TimeCoin 失敗：', err);
+    res.status(500).json({ error: 'Database query error' });
+  }
 });
 
-// 查詢 Prize Pool
-app.get('/getPrizePool', (req, res) => {
-  const querySql = `
-      SELECT FLOOR(Amount * 10000) AS AdjustedAmount
-      FROM PrizePool
-      WHERE ID = 1
-  `;
-
-  db.query(querySql, (err, result) => {
-    if (err) {
-      console.error('查詢 Amount 失敗：', err);
-      return res.status(500).json({ error: 'Database query error', details: err.message });
-    }
-
-    if (result.length > 0) {
-      // 返回成功的 JSON 結果
-      res.json({ amount: result[0].AdjustedAmount });
+// 🟢 查詢 Prize Pool
+app.get('/getPrizePool', async (req, res) => {
+  try {
+    const [results] = await db.execute(`SELECT FLOOR(Amount * 10000) AS AdjustedAmount FROM PrizePool WHERE ID = 1`);
+    if (results.length > 0) {
+      res.json({ amount: results[0].AdjustedAmount });
     } else {
-      // 查詢成功但無資料
       res.status(204).send(); // No Content
     }
-  });
+  } catch (err) {
+    console.error('查詢 Prize Pool 失敗：', err);
+    res.status(500).json({ error: 'Database query error' });
+  }
 });
 
 
-app.post('/check-user', (req, res) => {
+// 🟢 檢查並新增用戶
+app.post('/check-user', async (req, res) => {
   const { walletAddress } = req.body;
-  const query = 'SELECT *, FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?';
-
-  // 查詢資料庫
-  db.query(query, [walletAddress], (err, results) => {
-    if (err) {
-      console.error('查詢用戶資料失敗：', err);
-      res.status(500).send('資料庫查詢失敗');
-      return;
-    }
+  try {
+    const [results] = await db.execute(`SELECT *, FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
 
     if (results.length === 0) {
-      // 如果沒有找到，插入新用戶
-      const insertQuery = 'INSERT INTO UserInfo (WalletAddress, TimeCoin, Creator) VALUES (?, ?, ?)';
-      db.query(insertQuery, [walletAddress, 0, 'System'], (insertErr, insertResults) => {
-        if (insertErr) {
-          console.error('插入用戶資料失敗：', insertErr);
-          res.status(500).send('資料庫插入失敗');
-          return;
-        }
-
-        // 返回新用戶的資訊
-        res.json({
-          isNewUser: true,
-          walletAddress: walletAddress,
-          timeCoin: 0,
-          createdAt: new Date().toISOString(),
-          creator: 'System'
-        });
+      const [insertResults] = await db.execute(`INSERT INTO UserInfo (WalletAddress, TimeCoin, Creator) VALUES (?, ?, ?)`, [walletAddress, 0, 'System']);
+      res.json({
+        isNewUser: true,
+        walletAddress: walletAddress,
+        timeCoin: 0,
+        createdAt: new Date().toISOString(),
+        creator: 'System'
       });
     } else {
-      // 如果找到該用戶，返回現有用戶資訊
       const userInfo = results[0];
       res.json({
         isNewUser: false,
@@ -107,75 +71,92 @@ app.post('/check-user', (req, res) => {
         timeCoin: userInfo.AdjustedTimeCoin,
       });
     }
-  });
+  } catch (err) {
+    console.error('檢查用戶失敗：', err);
+    res.status(500).send('資料庫錯誤');
+  }
 });
 
-// 更新用戶的Time Coin
-app.post('/update-balance', (req, res) => {
-  const { walletAddress, amountChange } = req.body;
+// 於遊戲結束後，更新用戶 Time Coin 與 Prize Pool
+app.post('/update-balance-when-game-over', async (req, res) => {
+  const { walletAddress, betAmount, odds, gameResult } = req.body;
 
-  if (!walletAddress || amountChange === undefined) {
-    return res.status(400).json({ error: 'Missing walletAddress or amountChange' });
+  if (!walletAddress || betAmount === undefined) {
+    return res.status(400).json({ error: 'Missing walletAddress or betAmount' });
   }
 
-  // 查詢用戶是否存在
-  const querySelect = `SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`;
-  db.query(querySelect, [walletAddress], (selectErr, results) => {
-    if (selectErr) {
-      console.error('查詢用戶失敗：', selectErr);
-      return res.status(500).json({ error: 'Database query error' });
-    }
+  let userTimeCoinOdds = gameResult === 'win' ? 1 + odds : 0;
+  let prizePoolOdds = gameResult === 'lose' ? 1 : -odds;
 
+  try {
+    // 1.更新用戶的 TimeCoin
+    const queryUpdateUserTimeCoin = `
+      UPDATE UserInfo
+      SET TimeCoin = TimeCoin + (? * ?)
+      WHERE WalletAddress = ?
+    `;
+    await db.execute(queryUpdateUserTimeCoin, [betAmount, userTimeCoinOdds, walletAddress]);
+
+    // 2.重新查詢 UserInfo 的 TimeCoin
+    const [userResults] = await db.execute(`SELECT TimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
+    if (!userResults || userResults.length === 0) {
+      return res.status(404).json({ error: 'User not found', walletAddress });
+    }
+    const userTimeCoin = userResults[0].TimeCoin; // 取得 UserInfo 的 TimeCoin
+
+    // 3.更新獎金池的金額
+    const queryUpdatePrizePool = `
+      UPDATE PrizePool
+      SET Amount = Amount + ((? * ?) / 10000)
+      WHERE ID = 1
+    `;
+    await db.execute(queryUpdatePrizePool, [betAmount, prizePoolOdds]);
+
+    // 4.重新查詢 PrizePool 的最新金額
+    const [prizePoolResults] = await db.execute(`SELECT FLOOR(Amount * 10000) AS Amount FROM PrizePool WHERE ID = 1`);
+    if (!prizePoolResults || prizePoolResults.length === 0) {
+      return res.status(404).json({ error: 'Prize pool not found' });
+    }
+    const prizePoolTimeCoin = prizePoolResults[0].Amount; // 取得 PrizePool 的金額
+
+    // 回傳結果
+    res.json({
+      success: true,
+      walletAddress,
+      userTimeCoin, // 來自 UserInfo 的 TimeCoin
+      prizePoolTimeCoin // 來自 PrizePool 的 Amount
+    });
+
+  } catch (error) {
+    console.error('錯誤:', error);
+    res.status(500).json({ error: '伺服器內部錯誤' });
+  }
+});
+
+// 🟢 更新用戶 TimeCoin
+app.post('/update-balance-when-game-start', async (req, res) => {
+  const { walletAddress, amountChange } = req.body;
+  try {
+    const [results] = await db.execute(`SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
     if (results.length === 0) {
-      // 用戶不存在
       return res.status(404).json({ error: 'User not found', walletAddress });
     }
 
-    // 更新 TimeCoin
     const currentBalance = results[0].AdjustedTimeCoin;
-    const newBalance = currentBalance + amountChange;
+    const newBalance = currentBalance - amountChange;
 
     if (newBalance < 0) {
       return res.status(400).json({ error: 'Insufficient balance', currentBalance });
     }
 
-    const queryUpdate = `
-      UPDATE UserInfo
-      SET TimeCoin = ?
-      WHERE WalletAddress = ?
-    `;
-    db.query(queryUpdate, [newBalance, walletAddress], (updateErr) => {
-      if (updateErr) {
-        console.error('更新用戶餘額失敗：', updateErr);
-        return res.status(500).json({ error: 'Database update error' });
-      }
+    await db.execute(`UPDATE UserInfo SET TimeCoin = ? WHERE WalletAddress = ?`, [newBalance, walletAddress]);
 
-      res.json({
-        success: true,
-        walletAddress,
-        updatedBalance: newBalance,
-      });
-    });
-
-    // 更新獎金池
-    const queryUpdatePrizePool = `
-      UPDATE PrizePool
-      SET Amount = Amount - (?/10000)
-      WHERE ID = 1
-    `;
-
-    db.query(queryUpdatePrizePool, [amountChange], (err, result) => {
-      if (err) {
-        console.error('更新 Prize Pool 失敗:', err);
-      } else {
-        console.log(`Prize Pool 資料表已更新，受影響行數: ${result.affectedRows}`);
-      }
-    });
-
-  });
+    res.json({ success: true, walletAddress, updatedUserBalance: newBalance });
+  } catch (err) {
+    console.error('更新用戶餘額失敗：', err);
+    res.status(500).json({ error: 'Database update error' });
+  }
 });
-
-
 
 // 啟動伺服器
 const PORT = process.env.PORT || 3000;

@@ -27,7 +27,7 @@
         <button @click="ethToTimeCoin">確認</button>
       </div>
       <!-- 遊戲 -->
-      <TimeSniper :user-balance="userInfo.timeCoin" @game-result="handleGameResult" />
+      <TimeSniper :user-balance="userInfo.timeCoin" @game-result="handleGameResult" @game-start="handleGameStart" />
     </div>
   </div>
 </template>
@@ -113,20 +113,32 @@ export default {
         console.error("檢查用戶信息失敗:", error);
       }
     },
-    // 處理子組件的事件
-    async handleGameResult({ amountChange }) {
+    async handleGameResult({ result, betAmount, odds }) {
       // 更新資料庫
       try {
-        const response = await axios.post('http://localhost:3000/update-balance', {
+        const response = await axios.post('http://localhost:3000/update-balance-when-game-over', {
+          walletAddress: this.walletAddress, // 替換為實際錢包地址
+          gameResult: result,
+          betAmount,
+          odds
+        });
+
+        this.userInfo.timeCoin = response.data.userTimeCoin 
+        await this.getPrizePool();
+
+      } catch (error) {
+        console.error('更新餘額失敗:', error);
+      }
+    },
+    async handleGameStart({ amountChange }) {
+      // 扣除玩家 Time Coin
+      try {
+        const response = await axios.post('http://localhost:3000/update-balance-when-game-start', {
           walletAddress: this.walletAddress, // 替換為實際錢包地址
           amountChange,
         });
 
-        // 更新前端餘額
-        this.userBalance += amountChange;
-        
-        this.userInfo.timeCoin = response.data.updatedBalance
-        await this.getPrizePool();
+        this.userInfo.timeCoin = response.data.updatedUserBalance
 
       } catch (error) {
         console.error('更新餘額失敗:', error);
