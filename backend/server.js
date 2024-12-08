@@ -55,19 +55,19 @@ app.post('/check-user', async (req, res) => {
     const [results] = await db.execute(`SELECT *, FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
 
     if (results.length === 0) {
-      const [insertResults] = await db.execute(`INSERT INTO UserInfo (WalletAddress, TimeCoin, Creator) VALUES (?, ?, ?)`, [walletAddress, 0, 'System']);
+      const [insertResults] = await db.execute(`INSERT INTO UserInfo (WalletAddress, LeftOfPlay, TimeCoin, Creator) VALUES (?, ?, ?, ?)`, [walletAddress, 5, 0, 'System']);
       res.json({
         isNewUser: true,
         walletAddress: walletAddress,
-        timeCoin: 0,
-        createdAt: new Date().toISOString(),
-        creator: 'System'
+        leftOfPlay: 5,
+        timeCoin: 0
       });
     } else {
       const userInfo = results[0];
       res.json({
         isNewUser: false,
         walletAddress: userInfo.WalletAddress,
+        leftOfPlay: userInfo.LeftOfPlay,
         timeCoin: userInfo.AdjustedTimeCoin,
       });
     }
@@ -133,25 +133,46 @@ app.post('/update-balance-when-game-over', async (req, res) => {
   }
 });
 
-// 🟢 更新用戶 TimeCoin
+// 開始遊戲，更新相關資訊
 app.post('/update-balance-when-game-start', async (req, res) => {
   const { walletAddress, amountChange } = req.body;
   try {
-    const [results] = await db.execute(`SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
+    // 查詢用戶的 TimeCoin
+    const [results] = await db.execute(
+      `SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin, LeftOfPlay FROM UserInfo WHERE WalletAddress = ?`,
+      [walletAddress]
+    );
+
     if (results.length === 0) {
       return res.status(404).json({ error: 'User not found', walletAddress });
     }
 
     const currentBalance = results[0].AdjustedTimeCoin;
+    const currentLeftOfPlay = results[0].LeftOfPlay;
     const newBalance = currentBalance - amountChange;
+    const newLeftOfPlay = currentLeftOfPlay - 1;
 
+    // 檢查餘額和剩餘遊戲次數是否足夠
     if (newBalance < 0) {
       return res.status(400).json({ error: 'Insufficient balance', currentBalance });
     }
 
-    await db.execute(`UPDATE UserInfo SET TimeCoin = ? WHERE WalletAddress = ?`, [newBalance, walletAddress]);
+    if (newLeftOfPlay < 0) {
+      return res.status(400).json({ error: 'No plays left', currentLeftOfPlay });
+    }
 
-    res.json({ success: true, walletAddress, updatedUserBalance: newBalance });
+    // 同時更新 TimeCoin 和 LeftOfPlay
+    await db.execute(
+      `UPDATE UserInfo SET TimeCoin = ?, LeftOfPlay = ? WHERE WalletAddress = ?`,
+      [newBalance, newLeftOfPlay, walletAddress]
+    );
+
+    res.json({
+      success: true,
+      walletAddress,
+      updatedUserBalance: newBalance,
+      updatedLeftOfPlay: newLeftOfPlay
+    });
   } catch (err) {
     console.error('更新用戶餘額失敗：', err);
     res.status(500).json({ error: 'Database update error' });

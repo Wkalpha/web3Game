@@ -1,6 +1,7 @@
 <template>
   <div class="game-container">
     <h2>遊戲</h2>
+    <h2>剩餘可遊玩次數{{ leftOfPlay }}</h2>
     <div v-if="!gameStarted && !gameFinished">
       <h3>選擇難度</h3>
       <button @click="setDifficulty('Easy')">Easy</button>
@@ -44,6 +45,10 @@ export default {
       type: Number,
       required: true,
     },
+    leftOfPlay: {
+      type: Number,
+      required: true,
+    },
   },
   data() {
     return {
@@ -68,7 +73,8 @@ export default {
         Number.isInteger(this.betAmount) && // 確保 betAmount 是整數
         this.betAmount > 0 &&
         this.betAmount <= this.userBalance &&
-        !!this.difficulty
+        !!this.difficulty &&
+        this.leftOfPlay > 0
       );
     },
     resultMessage() {

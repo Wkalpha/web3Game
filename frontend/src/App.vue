@@ -27,7 +27,7 @@
         <button @click="ethToTimeCoin">確認</button>
       </div>
       <!-- 遊戲 -->
-      <TimeSniper :user-balance="userInfo.timeCoin" @game-result="handleGameResult" @game-start="handleGameStart" />
+      <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-balance="userInfo.timeCoin" @game-result="handleGameResult" @game-start="handleGameStart" />
     </div>
   </div>
 </template>
@@ -42,7 +42,6 @@ import TimeSniper from '../src/components/TimeSniper.vue';
 export default {
   name: 'App',
   components: {
-    // GuessNumber,
     TimeSniper
   },
   data() {
@@ -55,7 +54,8 @@ export default {
       showBalance: false, // 控制餘額是否顯示
       prizePool: null,
       userInfo: {
-        timeCoin: 0
+        timeCoin: 0,
+        leftOfPlay: 0, // 剩餘可遊玩次數
       },
       ethToTimeCoinInputBox: false,
       eth: null
@@ -131,14 +131,15 @@ export default {
       }
     },
     async handleGameStart({ amountChange }) {
-      // 扣除玩家 Time Coin
+      // 扣除玩家 Time Coin 與 遊玩次數
       try {
         const response = await axios.post('http://localhost:3000/update-balance-when-game-start', {
           walletAddress: this.walletAddress, // 替換為實際錢包地址
           amountChange,
         });
 
-        this.userInfo.timeCoin = response.data.updatedUserBalance
+        this.userInfo.timeCoin = response.data.updatedUserBalance;
+        this.userInfo.leftOfPlay = response.data.updatedLeftOfPlay;
 
       } catch (error) {
         console.error('更新餘額失敗:', error);
