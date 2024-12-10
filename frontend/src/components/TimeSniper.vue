@@ -64,7 +64,7 @@ export default {
       currentRound: 1,
       totalScore: 0,
       currentRoundScore: null,
-      gameFinished: false,
+      gameFinished: false
     };
   },
   computed: {

@@ -2,6 +2,11 @@
 const express = require('express');
 const cors = require('cors'); // 引入 cors
 const db = require('./db'); // 引入資料庫連接
+const webSocketService = require('../backend/webSocketService.js');
+const WebSocketServiceInstance = new webSocketService(3001); // 啟動 WebSocket 服務，端口為 3001
+WebSocketServiceInstance.start(); // 啟動 WebSocket 服務
+
+const { transferEthToSpecificAddress, withdraw, web3, contract } = require('./web3utlts.js');
 
 const app = express();
 app.use(cors());
@@ -10,6 +15,41 @@ app.use(express.json());
 // 測試 API，檢查資料庫是否正常連接
 app.get('/', (req, res) => {
   res.send('Node.js 和 MySQL 已成功連接');
+});
+
+// 將 Time Coin > ETH
+app.post('/update-user-balance-when-buy-eth', async (req, res) => {
+  // 1. 扣除 user Time Coin
+
+  // 2. 調用合約
+  const { walletAddress, balanceChange } = req.body;
+  transferEthToSpecificAddress(walletAddress, balanceChange);
+
+  res.json({
+    message: "success"
+  })
+})
+
+// 提取合約的 ETH
+app.post('/update-prize-pool-after-withdraw', async (req, res) => {
+  try {
+    // 更新獎金池的金額
+    const queryUpdatePrizePool = `
+      UPDATE PrizePool
+      SET Amount = 0
+      WHERE ID = 1
+    `;
+    await db.execute(queryUpdatePrizePool);
+
+    await UpdatePrizePool();
+
+    // 2. 調用合約
+    withdraw();
+
+  } catch (error) {
+    console.error('錯誤:', error);
+    res.status(500).json({ error: '伺服器內部錯誤' });
+  }
 });
 
 // 🟢 查詢用戶 TimeCoin
@@ -55,7 +95,7 @@ app.post('/check-user', async (req, res) => {
     const [results] = await db.execute(`SELECT *, FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
 
     if (results.length === 0) {
-      const [insertResults] = await db.execute(`INSERT INTO UserInfo (WalletAddress, LeftOfPlay, TimeCoin, Creator) VALUES (?, ?, ?, ?)`, [walletAddress, 5, 0, 'System']);
+      await db.execute(`INSERT INTO UserInfo (WalletAddress, LeftOfPlay, TimeCoin, Creator) VALUES (?, ?, ?, ?)`, [walletAddress, 5, 0, 'System']);
       res.json({
         isNewUser: true,
         walletAddress: walletAddress,
@@ -105,26 +145,20 @@ app.post('/update-balance-when-game-over', async (req, res) => {
     const userTimeCoin = userResults[0].TimeCoin; // 取得 UserInfo 的 TimeCoin
 
     // 3.更新獎金池的金額
-    const queryUpdatePrizePool = `
+    const updatePrizePoolSQL = `
       UPDATE PrizePool
       SET Amount = Amount + ((? * ?) / 10000)
       WHERE ID = 1
     `;
-    await db.execute(queryUpdatePrizePool, [betAmount, prizePoolOdds]);
+    await db.execute(updatePrizePoolSQL, [betAmount, prizePoolOdds]);
 
-    // 4.重新查詢 PrizePool 的最新金額
-    const [prizePoolResults] = await db.execute(`SELECT FLOOR(Amount * 10000) AS Amount FROM PrizePool WHERE ID = 1`);
-    if (!prizePoolResults || prizePoolResults.length === 0) {
-      return res.status(404).json({ error: 'Prize pool not found' });
-    }
-    const prizePoolTimeCoin = prizePoolResults[0].Amount; // 取得 PrizePool 的金額
+    await UpdatePrizePool();
 
     // 回傳結果
     res.json({
       success: true,
       walletAddress,
-      userTimeCoin, // 來自 UserInfo 的 TimeCoin
-      prizePoolTimeCoin // 來自 PrizePool 的 Amount
+      userTimeCoin // 來自 UserInfo 的 TimeCoin
     });
 
   } catch (error) {
@@ -178,6 +212,73 @@ app.post('/update-balance-when-game-start', async (req, res) => {
     res.status(500).json({ error: 'Database update error' });
   }
 });
+
+// 更新 PrizePool 之後要廣播給所有的用戶
+async function UpdatePrizePool() {
+  const [prizePoolResults] = await db.execute(`SELECT FLOOR(Amount * 10000) AS Amount FROM PrizePool WHERE ID = 1`);
+  const prizePoolTimeCoin = prizePoolResults[0]?.Amount;
+
+  const message = {
+    data: {
+      prizePoolTimeCoin: prizePoolTimeCoin
+    }
+  };
+
+  WebSocketServiceInstance.broadcastToAll(message);
+
+}
+
+// 監聽 buyToken 事件
+contract.events.TokensPurchased()
+  .on('data', async (event) => {
+    console.log(event); // 可以選擇不顯示
+
+    const weiToEth = web3.utils.fromWei(event.returnValues.ethAmount, 'ether');
+    const timeCoin = weiToEth * 10000; // 1 ETH = 10000 TimeCoin
+    const buyer = event.returnValues.buyer;
+
+    try {
+      // 更新 UserInfo 的 TimeCoin
+      const updateUserTimeCoinSql = `
+                UPDATE UserInfo
+                SET TimeCoin = TimeCoin + ?
+                WHERE WalletAddress = ?
+            `;
+      await db.execute(updateUserTimeCoinSql, [timeCoin, buyer]);
+
+      // 更新 PrizePool 的 Amount
+      const updatePrizePoolSql = `
+                UPDATE PrizePool
+                SET Amount = Amount + ?
+                WHERE ID = 1
+            `;
+      await db.execute(updatePrizePoolSql, [weiToEth]);
+
+      // 🟢 重新 SELECT 以獲取最新的 Time Coin
+      const selectUserInfo = `
+        SELECT TimeCoin
+        FROM UserInfo
+        WHERE WalletAddress = ?
+      `;
+      const [userInfoRow] = await db.execute(selectUserInfo, [buyer]);
+      const userInfoTimeCoin = userInfoRow[0]?.TimeCoin;
+
+      // 只通知對應的買家 (特定的 walletAddress)
+      const message = {
+        event: 'TokensPurchased',
+        data: {
+          buyer,
+          userTimeCoin: userInfoTimeCoin
+        }
+      };
+
+      WebSocketServiceInstance.broadcastToClient(buyer, message);
+      await UpdatePrizePool();
+
+    } catch (err) {
+      console.error('更新 UserInfo 或 PrizePool 失敗:', err);
+    }
+  });
 
 // 啟動伺服器
 const PORT = process.env.PORT || 3000;
