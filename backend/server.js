@@ -19,16 +19,53 @@ app.get('/', (req, res) => {
 
 // 將 Time Coin > ETH
 app.post('/update-user-balance-when-buy-eth', async (req, res) => {
-  // 1. 扣除 user Time Coin
-
-  // 2. 調用合約
   const { walletAddress, balanceChange } = req.body;
   transferEthToSpecificAddress(walletAddress, balanceChange);
+})
+
+// 購買遊戲次數
+app.post('/update-user-balance-when-buy-playtimes', async (req, res) => {
+  const { walletAddress, balanceChange, playTimes } = req.body;
+
+  const balanceChangeToETH = balanceChange / 10000;
+
+  console.log(walletAddress, balanceChange, playTimes, balanceChangeToETH)
+
+  // 1. 更新獎金池的金額
+  const updatePrizePoolSql = `
+    UPDATE PrizePool
+    SET Amount = Amount + ?
+    WHERE ID = 1
+  `;
+  await db.execute(updatePrizePoolSql, [balanceChangeToETH]);
+
+  // 2. 更新使用者的 Time Coin & PlayTimes
+  const updateUserInfo= `
+    UPDATE UserInfo
+    SET TimeCoin = TimeCoin - ?, LeftOfPlay = LeftOfPlay + ?
+    WHERE WalletAddress = ?
+  `;
+  await db.execute(updateUserInfo, [balanceChange, playTimes, walletAddress]);
+
+  // 🟢 重新 SELECT 以獲取最新的 Time Coin
+  const selectUserInfo = `
+    SELECT TimeCoin, LeftOfPlay
+    FROM UserInfo
+    WHERE WalletAddress = ?
+  `;
+  const [userInfoRow] = await db.execute(selectUserInfo, [walletAddress]);
+  const userInfoTimeCoin = userInfoRow[0]?.TimeCoin;
+  const leftOfPlay = userInfoRow[0]?.LeftOfPlay;
+
+  await UpdatePrizePool();
 
   res.json({
-    message: "success"
-  })
+    leftOfPlay: leftOfPlay,
+    timeCoin: userInfoTimeCoin
+  });
+
 })
+
 
 // 提取合約的 ETH
 app.post('/update-prize-pool-after-withdraw', async (req, res) => {
@@ -219,6 +256,7 @@ async function UpdatePrizePool() {
   const prizePoolTimeCoin = prizePoolResults[0]?.Amount;
 
   const message = {
+    event: 'PrizePoolUpdated',
     data: {
       prizePoolTimeCoin: prizePoolTimeCoin
     }
@@ -277,6 +315,51 @@ contract.events.TokensPurchased()
 
     } catch (err) {
       console.error('更新 UserInfo 或 PrizePool 失敗:', err);
+    }
+  });
+
+// 監聽 EthTransferred 事件
+contract.events.EthTransferred()
+  .on('data', async (event) => {
+    console.log(event); // 可以選擇不顯示
+
+    let totalAmount = event.returnValues.amountAfterFee + event.returnValues.feeAmount;
+
+    const weiToEth = web3.utils.fromWei(totalAmount, 'ether');
+    const timeCoin = weiToEth * 10000; // 1 ETH = 10000 TimeCoin
+    const buyer = event.returnValues.to;
+
+    try {
+      // 更新 UserInfo 的 TimeCoin
+      const updateUserTimeCoinSql = `
+                UPDATE UserInfo
+                SET TimeCoin = TimeCoin - ?
+                WHERE WalletAddress = ?
+            `;
+      await db.execute(updateUserTimeCoinSql, [timeCoin, buyer]);
+
+      // 🟢 重新 SELECT 以獲取最新的 Time Coin
+      const selectUserInfo = `
+        SELECT TimeCoin
+        FROM UserInfo
+        WHERE WalletAddress = ?
+      `;
+      const [userInfoRow] = await db.execute(selectUserInfo, [buyer]);
+      const userInfoTimeCoin = userInfoRow[0]?.TimeCoin;
+
+      // 只通知對應的買家 (特定的 walletAddress)
+      const message = {
+        event: 'TimeCoinToETH',
+        data: {
+          buyer,
+          userTimeCoin: userInfoTimeCoin
+        }
+      };
+
+      WebSocketServiceInstance.broadcastToClient(buyer, message);
+
+    } catch (err) {
+      console.error('更新 UserInfo Time Coin 失敗:', err);
     }
   });
 

@@ -20,6 +20,7 @@
           <span v-if="!showBalance">顯示</span>
           <span v-else>隱藏</span>
         </button>
+        <button @click="updateBalance">重整餘額</button>
       </p>
       <p>
         獎金池: {{ prizePool }} Time Coin
@@ -32,14 +33,25 @@
         <button @click="openTimeCoinToETHInputBox">
           兌換 ETH
         </button>
+        <button @click="openTimeCoinToPlayTimesInputBox">
+          購買遊玩次數
+        </button>
       </div>
       <div v-if="ethToTimeCoinInputBox">
         ETH 數量(最少0.001):<input type="number" v-model="eth">
-        <button @click="ethToTimeCoin">確認</button>
+        <button @click="ethToTimeCoin" :disabled="!canBuyTimeCoin">確認</button>
       </div>
       <div v-if="timeCoinToETHInputBox">
-        Time Coin 數量(最少100):<input type="number" v-model="timeCoin">
-        <button @click="timeCoinToETH" :disabled="!canBuyETH">確認</button>
+        Time Coin 數量(最少100，並且會扣除5%手續費):<input type="number" v-model="timeCoin">
+        <div>
+          <button v-if="blockchainConfirm" @click="timeCoinToETH" :disabled="!canBuyETH">確認</button>
+          <button v-else disabled>正在等待交易確認</button>
+        </div>
+
+      </div>
+      <div v-if="timeCoinToPlayTimesInputBox">
+        100 Time Coin 購買遊玩次數(最少1):<input type="number" v-model="playTimes">
+        <button @click="timeCoinToPlayTimes" :disabled="!canBuyPlayTimes">確認</button>
       </div>
       <!-- 遊戲 -->
       <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-balance="userInfo.timeCoin" @game-result="handleGameResult"
@@ -78,6 +90,9 @@ export default {
       eth: null,
       timeCoinToETHInputBox: false,
       timeCoin: null,
+      blockchainConfirm: true,
+      timeCoinToPlayTimesInputBox: false,
+      playTimes: null,
       ownerAddress: process.env.VUE_APP_OWNER_WALLET_ADDRESS,
       contractAddress: process.env.VUE_APP_CONTRACT_ADDRESS
     };
@@ -90,11 +105,27 @@ export default {
       }
       return '';
     },
+    canBuyTimeCoin() {
+      return (
+        typeof this.eth === 'number' &&
+        this.eth > 0 &&
+        !Number.isNaN(this.eth) &&
+        this.eth >= 0.001 &&
+        this.eth <= this.balance
+      );
+    },
     canBuyETH() {
       return (
         Number.isInteger(this.timeCoin) &&
-        this.timeCoin > 0 &&
+        this.timeCoin >= 100 &&
         this.timeCoin <= this.userInfo.timeCoin
+      );
+    },
+    canBuyPlayTimes() {
+      return (
+        Number.isInteger(this.playTimes) &&
+        this.playTimes > 0 &&
+        this.playTimes * 100 < this.userInfo.timeCoin
       );
     },
     owner() {
@@ -127,6 +158,16 @@ export default {
         }
       } else {
         alert('您尚未安裝 Metamask');
+      }
+    },
+    async updateBalance() {
+      if (this.walletAddress) {
+        try {
+          const balanceWei = await this.web3.eth.getBalance(this.walletAddress);
+          this.balance = this.web3.utils.fromWei(balanceWei, 'ether');
+        } catch (error) {
+          console.error('無法獲取最新餘額:', error);
+        }
       }
     },
     async checkUserInfo() {
@@ -189,6 +230,12 @@ export default {
       this.timeCoinToETHInputBox = !this.timeCoinToETHInputBox;
       this.timeCoin = null
     },
+    openTimeCoinToPlayTimesInputBox() {
+      this.timeCoinToPlayTimesInputBox = !this.timeCoinToPlayTimesInputBox;
+      this.playTimes = null
+    },
+
+    // ETH > Time Coin
     async ethToTimeCoin() {
       try {
         // 檢查輸入值是否至少為 0.001
@@ -209,6 +256,63 @@ export default {
         console.error("購買代幣失敗:", error.message);
       }
     },
+
+    // Time Coin > ETH
+    async timeCoinToETH() {
+      try {
+        this.blockchainConfirm = false;
+        // 檢查輸入值是否至少為 100
+        if (!this.timeCoin || this.timeCoin < 100) {
+          alert("輸入的 Time Coin 數量必須至少為 100");
+          return; // 終止執行
+        }
+
+        await axios.post('http://localhost:3000/update-user-balance-when-buy-eth', {
+          walletAddress: this.walletAddress,
+          balanceChange: this.timeCoin
+        });
+
+      } catch (error) {
+        console.error("兌換失敗:", error.message);
+      }
+    },
+
+    // Time Coin > Play Times
+    async timeCoinToPlayTimes() {
+      try {
+        if (!this.playTimes || this.playTimes < 0) {
+          alert("數量必須至少為 1");
+          return; // 終止執行
+        }
+
+        var response = await axios.post('http://localhost:3000/update-user-balance-when-buy-playtimes', {
+          walletAddress: this.walletAddress,
+          balanceChange: 100 * this.playTimes,
+          playTimes: this.playTimes
+        });
+
+        this.userInfo.leftOfPlay = response.data.leftOfPlay;
+        this.userInfo.timeCoin = response.data.timeCoin;
+
+      } catch (error) {
+        console.error("購買失敗:", error.message);
+      }
+    },
+
+    async withDraw() {
+      await axios.post('http://localhost:3000/update-prize-pool-after-withdraw');
+    },
+
+    async initContract() {
+      // 智能合約地址與 ABI
+      this.contract = new this.web3.eth.Contract(contractABI, this.contractAddress);
+    },
+
+    async getPrizePool() {
+      const response = await axios.get('http://localhost:3000/getPrizePool');
+      this.prizePool = response.data.amount
+    },
+
     // websocket
     connectWebSocket() {
       const walletAddress = this.walletAddress.toLowerCase();
@@ -221,12 +325,22 @@ export default {
       this.webSocket.onmessage = (message) => {
         const data = JSON.parse(message.data);
         if (data.event === 'TokensPurchased') {
-
           if (data.data.buyer.toLowerCase() === this.walletAddress.toLowerCase()) {
             this.userInfo.timeCoin = data.data.userTimeCoin;
           }
         }
-        this.prizePool = data.data.prizePoolTimeCoin
+
+        if (data.event === 'TimeCoinToETH') {
+          if (data.data.buyer.toLowerCase() === this.walletAddress.toLowerCase()) {
+            this.userInfo.timeCoin = data.data.userTimeCoin;
+            this.blockchainConfirm = true;
+            this.updateBalance(); // 獲取最新的 ETH 餘額
+          }
+        }
+
+        if (data.event === 'PrizePoolUpdated') {
+          this.prizePool = data.data.prizePoolTimeCoin
+        }
       };
 
       this.webSocket.onclose = () => {
@@ -237,49 +351,6 @@ export default {
       this.webSocket.onerror = (error) => {
         console.error('WebSocket 錯誤:', error);
       };
-    },
-    // Time Coin > ETH
-    async timeCoinToETH() {
-      try {
-        // 檢查輸入值是否至少為 100
-        if (!this.timeCoin || this.timeCoin < 100) {
-          alert("輸入的 Time Coin 數量必須至少為 100");
-          return; // 終止執行
-        }
-
-        // Call node.js
-        const response = await axios.post('http://localhost:3000/update-user-balance-when-buy-eth', {
-          walletAddress: this.walletAddress,
-          balanceChange: this.timeCoin
-        });
-
-        console.log(response)
-        // try {
-        //   const response = await axios.post('http://localhost:3000/update-user-balance-when-buy-eth', {
-        //     walletAddress: this.walletAddress, // 替換為實際錢包地址
-        //     balanceChange: this.timeCoin,
-        //   });
-
-        //   this.userInfo.timeCoin = response.data.updatedUserBalance;
-
-        // } catch (error) {
-        //   console.error('資料庫更新失敗:', error);
-        // }
-
-      } catch (error) {
-        console.error("兌換失敗:", error.message);
-      }
-    },
-    async withDraw() {
-      await axios.post('http://localhost:3000/update-prize-pool-after-withdraw');
-    },
-    async initContract() {
-      // 智能合約地址與 ABI
-      this.contract = new this.web3.eth.Contract(contractABI, this.contractAddress);
-    },
-    async getPrizePool() {
-      const response = await axios.get('http://localhost:3000/getPrizePool');
-      this.prizePool = response.data.amount
     }
   },
 };

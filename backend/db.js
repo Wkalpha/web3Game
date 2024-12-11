@@ -54,24 +54,25 @@ const db = mysql.createPool({
 
         // 檢查事件是否已存在
         const [rows] = await db.query(`
-        SELECT * 
-        FROM INFORMATION_SCHEMA.EVENTS 
-        WHERE EVENT_SCHEMA = ? 
-          AND EVENT_NAME = 'ResetLeftOfPlayDaily';
-      `, [process.env.DB_DATABASE]);
+          SELECT * 
+          FROM INFORMATION_SCHEMA.EVENTS 
+          WHERE EVENT_SCHEMA = ? 
+            AND EVENT_NAME = 'ResetLeftOfPlayDaily';
+        `, [process.env.DB_DATABASE]);
 
         if (rows.length === 0) {
             console.log('事件 ResetLeftOfPlayDaily 不存在，正在建立...');
 
             // 改成使用 db.query()，而不是 db.execute()
             const createEventSql = `
-          CREATE EVENT ResetLeftOfPlayDaily 
-            ON SCHEDULE EVERY 1 DAY 
-            STARTS CONVERT_TZ(CURRENT_DATE, @@global.time_zone, '+00:00') + INTERVAL '00:00' HOUR_MINUTE 
+              CREATE EVENT ResetLeftOfPlayDaily 
+                ON SCHEDULE EVERY 1 DAY 
+                STARTS CONVERT_TZ(CURRENT_DATE, @@global.time_zone, '+00:00') + INTERVAL '00:00' HOUR_MINUTE 
                 DO 
                 UPDATE UserInfo 
-                SET LeftOfPlay = 5;
-        `;
+                SET LeftOfPlay = 5 
+                WHERE LeftOfPlay <= 5;
+            `;
             await db.query(createEventSql);
             console.log('ResetLeftOfPlayDaily 事件已建立');
         } else {

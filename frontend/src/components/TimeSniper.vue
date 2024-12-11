@@ -8,14 +8,17 @@
       <button @click="setDifficulty('Normal')">Normal</button>
       <button @click="setDifficulty('Hard')">Hard</button>
       <div v-if="difficulty">
-        <p>選擇的難度：{{ difficulty }}</p>
-        <input type="number" v-model.number="betAmount" placeholder="輸入下注金額" />
+        <p>選擇的難度：{{ difficulty }}(賠率{{odds}})</p>
+        <p>投入 Time Coin</p>
+        <input type="number" v-model.number="betAmount" placeholder="至少 100 Time Coin" />
         <button @click="startGame" :disabled="!canStartGame">開始對戰</button>
         <p v-if="betAmountError" class="error">{{ betAmountError }}</p>
       </div>
     </div>
 
     <div v-if="gameStarted">
+      <p v-if="countdownTime >= 60">倒數時間：{{ Math.floor(countdownTime / 60) }} 分鐘</p>
+      <p v-else>遊戲即將結束</p>
       <h3>回合 {{ currentRound }} / 10</h3>
       <p v-if="!targetTime">目標秒數: -</p>
       <p v-else>目標秒數: {{ targetTime.toFixed(2) }}</p>
@@ -64,14 +67,16 @@ export default {
       currentRound: 1,
       totalScore: 0,
       currentRoundScore: null,
+      countdownTime: 180, // 3分鐘倒數時間，單位為秒
+      countdownInterval: null,
       gameFinished: false
     };
   },
   computed: {
     canStartGame() {
       return (
-        Number.isInteger(this.betAmount) && // 確保 betAmount 是整數
-        this.betAmount > 0 &&
+        Number.isInteger(this.betAmount) &&
+        this.betAmount >= 100 &&
         this.betAmount <= this.userBalance &&
         !!this.difficulty &&
         this.leftOfPlay > 0
@@ -92,6 +97,19 @@ export default {
   methods: {
     setDifficulty(level) {
       this.difficulty = level;
+      switch (this.difficulty) {
+        case 'Easy':
+          this.odds = 0.01;
+          break;
+        case 'Normal':
+          this.odds = 0.03;
+          break;
+        case 'Hard':
+          this.odds = 0.1;
+          break;
+        default:
+          break;
+      }
     },
     startGame() {
       if (this.betAmount <= 0 || this.betAmount > this.userBalance) {
@@ -100,9 +118,23 @@ export default {
       }
       this.betAmountError = '';
       this.gameStarted = true;
+      this.startCountdown();
 
       // 通知父組件
       this.$emit('game-start', { amountChange: this.betAmount });
+    },
+    startCountdown() {
+      this.countdownTime = 180;
+      this.countdownInterval = setInterval(() => {
+        if (this.countdownTime > 0) {
+          this.countdownTime--;
+        } else {
+          clearInterval(this.countdownInterval);
+          this.gameFinished = true;
+          this.gameStarted = false;
+          this.finishGame();
+        }
+      }, 1000);
     },
     getTargetTime() {
       this.targetTime = parseFloat((Math.random() * 9 + 1).toFixed(2));
@@ -132,6 +164,7 @@ export default {
       }
     },
     finishGame() {
+      clearInterval(this.countdownInterval);
       const result = this.totalScore >= 60 ? 'win' : 'lose';
 
       switch (this.difficulty) {
@@ -149,9 +182,10 @@ export default {
       }
 
       // 通知父組件
-      this.$emit('game-result', { result, betAmount:this.betAmount, odds:this.odds });
+      this.$emit('game-result', { result, betAmount: this.betAmount, odds: this.odds });
     },
     resetGame() {
+      clearInterval(this.countdownInterval);
       this.difficulty = null;
       this.betAmount = null;
       this.betAmountError = '';
@@ -164,6 +198,7 @@ export default {
       this.totalScore = 0;
       this.currentRoundScore = null;
       this.gameFinished = false;
+      this.countdownTime = 180;
     },
   },
 };
