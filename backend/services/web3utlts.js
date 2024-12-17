@@ -8,7 +8,7 @@ const { Web3 } = require('web3');
 const INFURA_URL = 'wss://sepolia.infura.io/ws/v3/1eb05ea628ac4f55b5543cb60a084c43';
 const web3 = new Web3(INFURA_URL);
 const contractAddress = process.env.Web3ContractAddress;
-const contractABI = require("./contract/time.json");
+const contractABI = require("../contract/time.json");
 
 const contract = new web3.eth.Contract(contractABI, contractAddress);
 

@@ -4,7 +4,7 @@ dotenv.config();
 const mysql = require('mysql2/promise'); // 使用 mysql2/promise 版本
 
 // 初始化 MySQL 連線池 (避免連線未準備好問題)
-const db = mysql.createPool({
+const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -15,4 +15,4 @@ const db = mysql.createPool({
   queueLimit: 0
 });
 
-module.exports = db;
+module.exports = pool;

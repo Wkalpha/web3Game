@@ -86,4 +86,45 @@ class WebSocketService {
     }
 }
 
-module.exports = WebSocketService;
+let webSocketServiceInstance = null;
+
+/**
+ * 初始化 WebSocket 服務
+ * @param {number} port - 服務端口
+ * @returns {WebSocketService} - 返回 WebSocket 服務實例
+ */
+const initWebSocketService = (port) => {
+    if (!webSocketServiceInstance) {
+        webSocketServiceInstance = new WebSocketService(port);
+        webSocketServiceInstance.start();
+    }
+    return webSocketServiceInstance;
+};
+
+/**
+ * 發送廣播消息
+ * @param {string} event - 事件名稱
+ * @param {object} data - 需要發送的數據
+ */
+const sendWebSocketMessage = (message) => {
+    if (webSocketServiceInstance) {
+        webSocketServiceInstance.broadcastToAll(message);
+    }
+};
+
+/**
+ * 對特定玩家發送消息
+ * @param {string} event - 事件名稱
+ * @param {object} data - 需要發送的數據
+ */
+const sendToPlayerMessage = (walletAddress, message) => {
+    if (webSocketServiceInstance) {
+        webSocketServiceInstance.broadcastToClient(walletAddress, message);
+    }
+};
+
+module.exports = {
+    initWebSocketService,
+    sendWebSocketMessage,
+    sendToPlayerMessage
+};

@@ -1,62 +1,58 @@
 <template>
   <div id="app">
     <h1>Time Battle DApp</h1>
-    <div>
-      合約地址: {{ contractAddress }}
-    </div>
+
+    <p>合約地址: {{ contractAddress }}</p>
     <button v-if="!wallet_connected" @click="connectWallet">連結錢包</button>
+
     <div v-if="walletAddress">
-      <div v-if="owner">
-        <button @click="withDraw">
-          提取合約 ETH
-        </button>
-      </div>
-      <p>錢包帳號地址：{{ formattedWalletAddress }}</p>
-      <p>
-        餘額：
-        <span v-if="showBalance">{{ balance }} ETH</span>
-        <span v-else>***</span>
-        <button @click="toggleBalanceVisibility" class="icon-button">
-          <span v-if="!showBalance">顯示</span>
-          <span v-else>隱藏</span>
-        </button>
-        <button @click="updateBalance">重整餘額</button>
-      </p>
-      <p>
-        獎金池: {{ prizePool }} Time Coin
-      </p>
-      <div v-if="userInfo">
-        Time Coin:{{ userInfo.timeCoin }}
-        <button @click="openETHToTimeCoinInputBox">
-          兌換 Time Coin
-        </button>
-        <button @click="openTimeCoinToETHInputBox">
-          兌換 ETH
-        </button>
-        <button @click="openTimeCoinToPlayTimesInputBox">
-          購買遊玩次數
-        </button>
-      </div>
-      <div v-if="ethToTimeCoinInputBox">
-        ETH 數量(最少0.001):<input type="number" v-model="eth">
-        <button @click="ethToTimeCoin" :disabled="!canBuyTimeCoin">確認</button>
-      </div>
-      <div v-if="timeCoinToETHInputBox">
-        Time Coin 數量(最少100，並且會扣除5%手續費):<input type="number" v-model="timeCoin">
-        <div>
-          <button v-if="blockchainConfirm" @click="timeCoinToETH" :disabled="!canBuyETH">確認</button>
-          <button v-else disabled>正在等待交易確認</button>
+      <!-- 主要內容區域 -->
+      <div class="main-container">
+        <!-- 左側：資訊展示區 -->
+        <div class="info-section">
+          <p>錢包帳號地址: {{ formattedWalletAddress }}</p>
+          <p>
+            餘額:
+            <span v-if="showBalance">{{ balance }} ETH</span>
+            <span v-else>******</span>
+            <button @click="toggleBalanceVisibility">顯示/隱藏</button>
+          </p>
+          <div class="pool-section">
+            <div class="prize-pool">
+              <p>獎金池: {{ prizePool }} Time Coin</p>
+            </div>
+            <div class="leaderboard-pool">
+              <p>排行榜獎金池: {{ leaderboardPrizePool }} Time Coin</p>
+              <!-- 顯示排行榜按鈕 -->
+              <button>上週排行榜結算</button>
+              <button @click="openLeaderboard">查看排行榜</button>
+            </div>
+          </div>
         </div>
 
+
+        <!-- 右側：功能操作區 -->
+        <div class="action-section">
+          <p>您持有 {{ userInfo.timeCoin }} Time Coin</p>
+          <button @click="openETHToTimeCoinInputBox">兌換 Time Coin</button>
+          <button @click="openTimeCoinToETHInputBox" :disabled="!blockchainConfirm">兌換 ETH</button>
+          <button @click="openTimeCoinToPlayTimesInputBox">購買遊玩次數</button>
+          <PrizeItemPool />
+        </div>
       </div>
-      <div v-if="timeCoinToPlayTimesInputBox">
-        100 Time Coin 購買遊玩次數(最少1):<input type="number" v-model="playTimes">
-        <button @click="timeCoinToPlayTimes" :disabled="!canBuyPlayTimes">確認</button>
+
+      <!-- 下方：遊戲區域 -->
+      <div class="game-section">
+        <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-balance="userInfo.timeCoin"
+          @game-result="handleGameResult" @game-start="handleGameStart" />
       </div>
-      <!-- 遊戲 -->
-      <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-balance="userInfo.timeCoin" @game-result="handleGameResult"
-        @game-start="handleGameStart" />
+
+      <!-- 顯示排行榜 -->
+      <LeaderBoard :is-visible="showLeaderboard" :players="leaderboardPlayers"
+        @closeLeaderboard="showLeaderboard = false" :isLoading="isLoading" :userWalletAddress="walletAddress"
+        :userTimeCoin="userInfo.timeCoin" @bet-complete="handleBetComplete" />
     </div>
+
   </div>
 </template>
 
@@ -66,11 +62,16 @@ import Web3 from 'web3';
 import contractABI from '../contract/time.json'
 import axios from 'axios';
 import TimeSniper from '../src/components/TimeSniper.vue';
+import LeaderBoard from './components/ShowLeaderboard.vue';
+import PrizeItemPool from './components/PrizeItemPool.vue';
+import Swal from 'sweetalert2';
 
 export default {
   name: 'App',
   components: {
-    TimeSniper
+    TimeSniper,
+    LeaderBoard,
+    PrizeItemPool
   },
   data() {
     return {
@@ -94,7 +95,14 @@ export default {
       timeCoinToPlayTimesInputBox: false,
       playTimes: null,
       ownerAddress: process.env.VUE_APP_OWNER_WALLET_ADDRESS,
-      contractAddress: process.env.VUE_APP_CONTRACT_ADDRESS
+      contractAddress: process.env.VUE_APP_CONTRACT_ADDRESS,
+
+      //test
+      showLeaderboard: false, // 控制排行榜顯示的開關
+      leaderboardPlayers: [], // 從 API 獲取的排行榜數據
+      leaderboardPrizePoolTimeCoin: 0,
+      isLoading: false // 是否正在加載排行榜數據
+      //test
     };
   },
   computed: {
@@ -149,7 +157,7 @@ export default {
             await this.checkUserInfo();
 
             await this.initContract(); // 連結錢包後初始化合約
-            await this.getPrizePool();
+            await this.getMainPrizePool();
 
             this.connectWebSocket();
           }
@@ -172,7 +180,7 @@ export default {
     },
     async checkUserInfo() {
       try {
-        const response = await axios.post('http://localhost:3000/check-user', {
+        const response = await axios.post('http://localhost:3000/find-or-add', {
           walletAddress: this.walletAddress
         });
 
@@ -187,33 +195,84 @@ export default {
         console.error("檢查用戶信息失敗:", error);
       }
     },
-    async handleGameResult({ result, betAmount, odds }) {
+    async openLeaderboard() {
+      try {
+        // 開啟 loading 狀態
+        this.isLoading = true;
+
+        const currentDate = new Date();
+        const year = currentDate.getFullYear();
+        const firstDayOfYear = new Date(year, 0, 1);
+        const pastDaysOfYear = Math.floor((currentDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
+        const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7); // 取得當前週數
+        const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`; // 例如：202450
+
+        await axios.post('http://localhost:3000/getLeaderboard', {
+          yearWeek
+        }).then(rs => {
+          // 將排行榜數據保存到 leaderboardPlayers 中
+          this.leaderboardPlayers = rs.data.leaderboard;
+
+          // 顯示排行榜
+          this.showLeaderboard = true;
+        })
+
+      } catch (error) {
+        console.error('獲取排行榜失敗:', error);
+        alert('無法獲取排行榜數據，請稍後再試');
+      } finally {
+        // 關閉 loading 狀態
+        this.isLoading = false;
+      }
+    },
+    handleBetComplete({ newUserTimeCoin, newLeaderboard }) {
+      this.userInfo.timeCoin = newUserTimeCoin;
+      this.leaderboardPlayers = newLeaderboard;
+    },
+    async handleGameResult({ result, betAmount, odds, difficulty }) {
+      let scores = 0;
+      switch (difficulty) {
+        case 'Easy':
+          scores = 2;
+          break;
+        case 'Normal':
+          scores = 5;
+          break;
+        case 'Hard':
+          scores = 10;
+          break;
+        default:
+          break;
+      }
       // 更新資料庫
       try {
         const response = await axios.post('http://localhost:3000/update-balance-when-game-over', {
           walletAddress: this.walletAddress, // 替換為實際錢包地址
           gameResult: result,
           betAmount,
-          odds
+          odds,
+          scores
         });
 
-        this.userInfo.timeCoin = response.data.userTimeCoin
-        await this.getPrizePool();
+        this.userInfo.timeCoin = response.data.userTimeCoin;
+        this.leaderboardPlayers = response.data.leaderboard;
+
+        await this.getMainPrizePool();
 
       } catch (error) {
         console.error('更新餘額失敗:', error);
       }
     },
-    async handleGameStart({ amountChange }) {
+    async handleGameStart({ amountInput }) {
       // 扣除玩家 Time Coin 與 遊玩次數
       try {
         const response = await axios.post('http://localhost:3000/update-balance-when-game-start', {
           walletAddress: this.walletAddress, // 替換為實際錢包地址
-          amountChange,
+          amountInput,
         });
 
-        this.userInfo.timeCoin = response.data.updatedUserBalance;
-        this.userInfo.leftOfPlay = response.data.updatedLeftOfPlay;
+        this.userInfo.timeCoin = response.data.timeCoin;
+        this.userInfo.leftOfPlay = response.data.leftOfPlay;
 
       } catch (error) {
         console.error('更新餘額失敗:', error);
@@ -222,36 +281,156 @@ export default {
     toggleBalanceVisibility() {
       this.showBalance = !this.showBalance;
     },
-    openETHToTimeCoinInputBox() {
+    async openETHToTimeCoinInputBox() {
       this.ethToTimeCoinInputBox = !this.ethToTimeCoinInputBox;
-      this.eth = null
+      this.eth = null;
+
+      const { value: inputValue } = await Swal.fire({
+        title: 'ETH 兌換 Time Coin',
+        text: `請輸入要轉換的 ETH 數量 (至少 0.001 ETH, 可用餘額: ${this.balance} ETH)`,
+        input: 'number', // 輸入框類型
+        inputValue: '0.001', // 預設的數值
+        inputAttributes: {
+          min: '0.001',
+          step: '0.001',
+          placeholder: '輸入 ETH 數量'
+        },
+        showCancelButton: true,
+        confirmButtonText: '兌換',
+        cancelButtonText: '取消',
+        preConfirm: (value) => {
+          // 驗證條件，僅當條件滿足時返回值
+          if (!value) {
+            Swal.showValidationMessage('請輸入一個數量');
+          } else if (isNaN(value)) {
+            Swal.showValidationMessage('請輸入一個有效的數字');
+          } else if (value < 0.001) {
+            Swal.showValidationMessage('輸入的 ETH 數量必須至少為 0.001');
+          } else if (value > this.balance) {
+            Swal.showValidationMessage(`您輸入的 ETH 數量超過您的餘額（可用餘額：${this.balance} ETH）`);
+          } else {
+            // 將用戶的值存到 this.eth，這裡的 this 需要用箭頭函數綁定
+            this.eth = parseFloat(value);
+            return value; // 返回用戶的值
+          }
+        }
+      });
+
+      // 如果用戶按下確認，並且 inputValue 存在，則繼續處理
+      if (inputValue) {
+        if (this.canBuyTimeCoin) {
+          await this.ethToTimeCoin(); // 調用實際的 ethToTimeCoin 方法
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: '無法進行轉換',
+            text: '您輸入的 ETH 數量無效，請檢查後重試。'
+          });
+        }
+      }
     },
-    openTimeCoinToETHInputBox() {
+    async openTimeCoinToETHInputBox() {
       this.timeCoinToETHInputBox = !this.timeCoinToETHInputBox;
-      this.timeCoin = null
+      this.timeCoin = null;
+
+      const { value: inputValue } = await Swal.fire({
+        title: 'Time Coin 兌換 ETH',
+        text: `請輸入要兌換的 Time Coin 數量 (至少 100, 目前擁有: ${this.userInfo.timeCoin} Time Coin)`,
+        input: 'number', // 輸入框類型
+        inputValue: '100', // 預設的數值
+        inputAttributes: {
+          min: '100',
+          step: '1', // 限制只能輸入整數
+          placeholder: '輸入 Time Coin 數量'
+        },
+        showCancelButton: true,
+        confirmButtonText: '是的，繼續',
+        cancelButtonText: '取消',
+        preConfirm: (value) => {
+          if (!value) {
+            Swal.showValidationMessage('請輸入一個數量');
+          } else if (!Number.isInteger(+value)) {
+            Swal.showValidationMessage('請輸入一個有效的整數');
+          } else if (value < 100) {
+            Swal.showValidationMessage('輸入的 Time Coin 數量必須至少為 100');
+          } else if (value > this.userInfo.timeCoin) {
+            Swal.showValidationMessage(`您輸入的 Time Coin 數量超過您的餘額（可用餘額：${this.userInfo.timeCoin} Time Coin）`);
+          } else {
+            this.timeCoin = parseInt(value, 10); // 更新 timeCoin，並確保為整數
+            return value; // 返回輸入值，這表示驗證成功
+          }
+        }
+      });
+
+      // 如果用戶按下確認，並且 inputValue 存在，則繼續處理
+      if (inputValue) {
+        if (this.canBuyETH) {
+          await this.timeCoinToETH(); // 調用實際的 timeCoinToETH 方法
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: '無法進行轉換',
+            text: '您輸入的 Time Coin 數量無效，請檢查後重試。'
+          });
+        }
+      }
     },
-    openTimeCoinToPlayTimesInputBox() {
+    async openTimeCoinToPlayTimesInputBox() {
       this.timeCoinToPlayTimesInputBox = !this.timeCoinToPlayTimesInputBox;
-      this.playTimes = null
+      this.playTimes = null;
+
+      const { value: inputValue } = await Swal.fire({
+        title: '購買遊玩次數',
+        text: `請輸入要購買的遊玩次數 (1 次 = 100 Time Coin，您擁有: ${this.userInfo.timeCoin} Time Coin)`,
+        input: 'number', // 輸入框類型
+        inputValue: '1', // 預設的數值
+        inputAttributes: {
+          min: '1',
+          step: '1', // 限制只能輸入整數
+          placeholder: '輸入遊玩次數'
+        },
+        showCancelButton: true,
+        confirmButtonText: '是的，繼續',
+        cancelButtonText: '取消',
+        preConfirm: (value) => {
+          if (!value) {
+            Swal.showValidationMessage('請輸入一個數量');
+          } else if (!Number.isInteger(+value)) {
+            Swal.showValidationMessage('請輸入一個有效的整數');
+          } else if (value <= 0) {
+            Swal.showValidationMessage('輸入的遊玩次數必須大於 0');
+          } else if (value * 100 > this.userInfo.timeCoin) {
+            Swal.showValidationMessage(`所需 Time Coin 為 ${value * 100}，但您只擁有 ${this.userInfo.timeCoin} Time Coin`);
+          } else {
+            this.playTimes = parseInt(value, 10); // 更新 playTimes，並確保為整數
+            return value; // 返回用戶的值，表示驗證成功
+          }
+        }
+      });
+
+      // 如果用戶按下確認，並且 inputValue 存在，則繼續處理
+      if (inputValue) {
+        if (this.canBuyPlayTimes) {
+          await this.timeCoinToPlayTimes(); // 調用實際的 timeCoinToPlayTimes 方法
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: '無法進行購買',
+            text: '您輸入的遊玩次數無效，請檢查後重試。'
+          });
+        }
+      }
     },
 
     // ETH > Time Coin
     async ethToTimeCoin() {
       try {
-        // 檢查輸入值是否至少為 0.001
-        if (!this.eth || this.eth < 0.001) {
-          alert("輸入的 ETH 數量必須至少為 0.001");
-          return; // 終止執行
-        }
-
         const amountToSend = this.web3.utils.toWei(this.eth.toString(), "ether");
 
         await this.contract.methods.buyTokens().send({
           from: this.walletAddress,
           value: amountToSend,
         });
-
-
       } catch (error) {
         console.error("購買代幣失敗:", error.message);
       }
@@ -261,11 +440,6 @@ export default {
     async timeCoinToETH() {
       try {
         this.blockchainConfirm = false;
-        // 檢查輸入值是否至少為 100
-        if (!this.timeCoin || this.timeCoin < 100) {
-          alert("輸入的 Time Coin 數量必須至少為 100");
-          return; // 終止執行
-        }
 
         await axios.post('http://localhost:3000/update-user-balance-when-buy-eth', {
           walletAddress: this.walletAddress,
@@ -308,8 +482,8 @@ export default {
       this.contract = new this.web3.eth.Contract(contractABI, this.contractAddress);
     },
 
-    async getPrizePool() {
-      const response = await axios.get('http://localhost:3000/getPrizePool');
+    async getMainPrizePool() {
+      const response = await axios.get('http://localhost:3000/getMainPrizePool');
       this.prizePool = response.data.amount
     },
 
@@ -341,6 +515,10 @@ export default {
         if (data.event === 'PrizePoolUpdated') {
           this.prizePool = data.data.prizePoolTimeCoin
         }
+
+        if (data.event === 'LeaderboardPrizePoolUpdated') {
+          this.leaderboardPrizePoolTimeCoin = data.data.leaderboardPrizePoolTimeCoin
+        }
       };
 
       this.webSocket.onclose = () => {
@@ -356,13 +534,62 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+  margin-top: 20px;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+.main-container {
+  display: flex;
+  justify-content: space-between;
+  /* 左右分佈 */
+  gap: 20px;
+  /* 左右區域的間距 */
+  padding: 20px;
+}
+
+.pool-section {
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.prize-pool,
+.leaderboard-pool {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #afafaf;
+}
+
+.info-section,
+.action-section {
+  flex: 1;
+  /* 左右區域等寬 */
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #afafaf;
+}
+
+.game-section {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #afafaf;
+  text-align: center;
+}
+
+:global(body) {
+  background-color: rgb(116, 102, 102);
 }
 </style>

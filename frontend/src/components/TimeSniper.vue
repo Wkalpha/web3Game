@@ -121,7 +121,7 @@ export default {
       this.startCountdown();
 
       // 通知父組件
-      this.$emit('game-start', { amountChange: this.betAmount });
+      this.$emit('game-start', { amountInput: this.betAmount });
     },
     startCountdown() {
       this.countdownTime = 180;
@@ -182,7 +182,7 @@ export default {
       }
 
       // 通知父組件
-      this.$emit('game-result', { result, betAmount: this.betAmount, odds: this.odds });
+      this.$emit('game-result', { result, betAmount: this.betAmount, odds: this.odds, difficulty: this.difficulty });
     },
     resetGame() {
       clearInterval(this.countdownInterval);
