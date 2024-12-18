@@ -1,8 +1,8 @@
 const pool = require('../database/pool');
 
 /**
- * 使用者購買遊玩次數
- * @param {string} walletAddress - 使用者的錢包地址
+ * 玩家購買遊玩次數
+ * @param {string} walletAddress - 玩家的錢包地址
  * @param {number} balanceChange - 變更的 TimeCoin 數量（負數表示扣除）
  * @param {number} playTimes - 變更的 PlayTimes 數量
  */
@@ -16,8 +16,23 @@ const buyPlayTimes = async (walletAddress, amount, playTimes) => {
 };
 
 /**
+ * 更新玩家 Time Coin
+ * @param {string} walletAddress - 玩家的錢包地址
+ * @param {number} balanceChange - 變更的 TimeCoin 數量（負數表示扣除）
+ * @param {number} playTimes - 變更的 PlayTimes 數量
+ */
+const updateUserTimeCoin = async (timeCoin, walletAddress) => {
+    const sql = `
+        UPDATE UserInfo
+        SET TimeCoin = TimeCoin + ?
+        WHERE WalletAddress = ?
+    `;
+    await pool.execute(sql, [timeCoin, walletAddress]);
+};
+
+/**
  * 取得玩家 餘額 與 剩餘遊玩次數
- * @param {string} walletAddress - 使用者的錢包地址
+ * @param {string} walletAddress - 玩家的錢包地址
  */
 const getTimeCoinPlayTimes = async (walletAddress) => {
     const sql = `SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin, LeftOfPlay FROM UserInfo WHERE WalletAddress = ?`;
@@ -27,12 +42,12 @@ const getTimeCoinPlayTimes = async (walletAddress) => {
 
 /**
  * 取得玩家 餘額
- * @param {string} walletAddress - 使用者的錢包地址
+ * @param {string} walletAddress - 玩家的錢包地址
  */
 const getTimeCoin = async (walletAddress) => {
     const sql = `SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`;
     const [rows] = await pool.execute(sql, [walletAddress]);
-    return rows[0];
+    return rows[0].AdjustedTimeCoin;
 };
 
 /**
@@ -57,10 +72,10 @@ const formatTimeCoin = async (walletAddress) => {
 
 const deductTimeCoin = async (walletAddress, amount) => {
     const sql = `
-    UPDATE UserInfo
-    SET TimeCoin = TimeCoin - ?
-    WHERE WalletAddress = ?
-  `;
+        UPDATE UserInfo
+        SET TimeCoin = TimeCoin - ?
+        WHERE WalletAddress = ?
+    `;
     await pool.execute(sql, [amount, walletAddress]);
 }
 
@@ -105,5 +120,6 @@ module.exports = {
     deductTimeCoin,
     deductPlayTimes,
     findOrAdd,
-    updateUserTimeCoinAfterGameOver
+    updateUserTimeCoinAfterGameOver,
+    updateUserTimeCoin
 };

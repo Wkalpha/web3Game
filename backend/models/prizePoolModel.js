@@ -91,11 +91,34 @@ const getLeaderboardPrizePoolAmount = async () => {
     return rows[0]?.AjustAmount || 0; // 如果找不到，返回 0
 };
 
+/**
+ * withdraw後更新主獎金池
+ * @param {number} amount - 需要增加的金額 (ETH)
+ */
+const updateMainPrizePoolAmountAfterWithdraw = async () => {
+    const sql = `UPDATE PrizePool SET Amount = 0 WHERE ID = 1`;
+    const [result] = await pool.execute(sql);
+
+    // 如果有變更到 PrizePool 表的金額，則發送 WebSocket 通知
+    if (result.affectedRows > 0) {
+        // 獲取最新的 PrizePool 金額
+        const amount = await getMainPrizePoolAmount();
+        const message = {
+            event: 'PrizePoolUpdated',
+            data: {
+                prizePoolTimeCoin: amount
+            }
+        };
+        sendWebSocketMessage(message); // 發送 WebSocket 消息
+    }
+};
+
 
 module.exports = {
     updateMainPrizePoolAmount,
     getMainPrizePoolAmount,
     updateLeaderboardPrizePoolAmount,
     getLeaderboardPrizePoolAmount,
-    updateMainPrizePoolAmountAfterGameOver
+    updateMainPrizePoolAmountAfterGameOver,
+    updateMainPrizePoolAmountAfterWithdraw
 };

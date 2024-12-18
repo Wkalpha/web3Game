@@ -114,8 +114,29 @@ const sendWebSocketMessage = (message) => {
 
 /**
  * 對特定玩家發送消息
- * @param {string} event - 事件名稱
- * @param {object} data - 需要發送的數據
+ * 
+ * @param {string} walletAddress - 玩家錢包地址，必須是有效的Web3錢包地址。
+ * @param {object} message - 傳遞的消息對象，包含事件名稱和數據。
+ * @param {string} message.event - 事件名稱，用於標識此消息的類型 (例如 'TokensPurchased', 'GameStarted' 等)。
+ * @param {object} message.data - 與該事件關聯的數據對象，內部結構可根據不同的事件名稱自定義。
+ * 
+ * @example
+ * sendToPlayerMessage('0x1234567890abcdef1234567890abcdef12345678', {
+ *   event: 'TokensPurchased',
+ *   data: {
+ *     buyer: '0x9876543210fedcba9876543210fedcba98765432',
+ *     userTimeCoin: 100
+ *   }
+ * });
+ * 
+ * @example
+ * sendToPlayerMessage('0xabcdefabcdefabcdefabcdefabcdefabcdef', {
+ *   event: 'GameStarted',
+ *   data: {
+ *     gameId: 'game_1234',
+ *     startTime: '2024-12-18T12:00:00Z'
+ *   }
+ * });
  */
 const sendToPlayerMessage = (walletAddress, message) => {
     if (webSocketServiceInstance) {

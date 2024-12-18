@@ -1,8 +1,8 @@
 const { buyPlayTimes, getTimeCoinPlayTimes, deductTimeCoin, deductPlayTimes, formatTimeCoin, findOrAdd, updateUserTimeCoinAfterGameOver, getTimeCoin } = require('../models/userModel');
-const { updateMainPrizePoolAmount, updateLeaderboardPrizePoolAmount, updateMainPrizePoolAmountAfterGameOver } = require('../models/prizePoolModel');
+const { updateMainPrizePoolAmount, updateLeaderboardPrizePoolAmount, updateMainPrizePoolAmountAfterGameOver, updateMainPrizePoolAmountAfterWithdraw } = require('../models/prizePoolModel');
 const { updateLeaderboardAmount, getLeaderboard, upsertLeaderboardAfterGameOver } = require('../models/leaderboardModel');
 const { upsertLeaderboardBetRecord } = require('../models/leaderboardBetRecordModel');
-const { transferEthToSpecificAddress } = require('../services/web3utlts');
+const { transferEthToSpecificAddress, withdraw } = require('../services/web3utlts');
 
 /**
  * 更新用戶餘額，當購買遊戲次數時
@@ -147,6 +147,14 @@ const gameOver = async (req, res) => {
   }
 };
 
+/**
+ * 提取合約所有 ETH
+ */
+const withdrawContract = async (req, res) => {
+  await updateMainPrizePoolAmountAfterWithdraw();
+  await withdraw();
+};
+
 
 module.exports = {
   updateUserBalanceWhenBuyPlaytimes,
@@ -154,5 +162,6 @@ module.exports = {
   leaderboardBet,
   findOrAddUser,
   gameStart,
-  gameOver
+  gameOver,
+  withdrawContract
 };

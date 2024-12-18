@@ -2,8 +2,19 @@
   <div id="app">
     <h1>Time Battle DApp</h1>
 
+    <div v-if="owner">
+      您好，創始者
+      <button @click="withDraw">提取合約</button>
+    </div>
+
     <p>合約地址: {{ contractAddress }}</p>
     <button v-if="!wallet_connected" @click="connectWallet">連結錢包</button>
+
+    <div v-if="!blockchainConfirm" class="overlay">
+      <div class="loading-message">
+        <p>請稍後，交易確認中...</p>
+      </div>
+    </div>
 
     <div v-if="walletAddress">
       <!-- 主要內容區域 -->
@@ -35,7 +46,7 @@
         <div class="action-section">
           <p>您持有 {{ userInfo.timeCoin }} Time Coin</p>
           <button @click="openETHToTimeCoinInputBox">兌換 Time Coin</button>
-          <button @click="openTimeCoinToETHInputBox" :disabled="!blockchainConfirm">兌換 ETH</button>
+          <button @click="openTimeCoinToETHInputBox">兌換 ETH</button>
           <button @click="openTimeCoinToPlayTimesInputBox">購買遊玩次數</button>
           <PrizeItemPool />
         </div>
@@ -425,6 +436,7 @@ export default {
     // ETH > Time Coin
     async ethToTimeCoin() {
       try {
+        this.blockchainConfirm = false;
         const amountToSend = this.web3.utils.toWei(this.eth.toString(), "ether");
 
         await this.contract.methods.buyTokens().send({
@@ -432,6 +444,7 @@ export default {
           value: amountToSend,
         });
       } catch (error) {
+        this.blockchainConfirm = true;
         console.error("購買代幣失敗:", error.message);
       }
     },
@@ -447,6 +460,7 @@ export default {
         });
 
       } catch (error) {
+        this.blockchainConfirm = true;
         console.error("兌換失敗:", error.message);
       }
     },
@@ -500,7 +514,9 @@ export default {
         const data = JSON.parse(message.data);
         if (data.event === 'TokensPurchased') {
           if (data.data.buyer.toLowerCase() === this.walletAddress.toLowerCase()) {
+            this.blockchainConfirm = true;
             this.userInfo.timeCoin = data.data.userTimeCoin;
+            this.updateBalance(); // 更新畫面錢包餘額
           }
         }
 
@@ -508,7 +524,7 @@ export default {
           if (data.data.buyer.toLowerCase() === this.walletAddress.toLowerCase()) {
             this.userInfo.timeCoin = data.data.userTimeCoin;
             this.blockchainConfirm = true;
-            this.updateBalance(); // 獲取最新的 ETH 餘額
+            this.updateBalance(); // 更新畫面錢包餘額
           }
         }
 
@@ -587,6 +603,32 @@ h1 {
   border-radius: 8px;
   background-color: #afafaf;
   text-align: center;
+}
+
+/* 遮罩的樣式 */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  /* 半透明黑色背景 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  /* 確保位於最上層 */
+}
+
+/* 提示文字樣式 */
+.loading-message {
+  background-color: #fff;
+  padding: 20px 40px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 18px;
+  color: #333;
 }
 
 :global(body) {
