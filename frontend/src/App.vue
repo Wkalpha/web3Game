@@ -197,11 +197,6 @@ export default {
 
         // 設定 userInfo 並顯示歡迎信息
         this.userInfo = response.data;
-        if (response.data.isNewUser) {
-          alert("歡迎新用戶！");
-        } else {
-          alert(`歡迎回來, ${response.data.walletAddress}!`);
-        }
       } catch (error) {
         console.error("檢查用戶信息失敗:", error);
       }
