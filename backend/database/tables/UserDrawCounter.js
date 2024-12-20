@@ -1,7 +1,7 @@
 const pool = require('../pool');
 
 const createUserDrawCounterTable = async () => {
-    const createTableSql = `
+  const createTableSql = `
     CREATE TABLE IF NOT EXISTS UserDrawCounter (
         UserId INT NOT NULL,
         PrizeItemPoolId INT NOT NULL,
@@ -11,8 +11,8 @@ const createUserDrawCounterTable = async () => {
         FOREIGN KEY (PrizeItemPoolId) REFERENCES PrizeItemPool(PrizeItemPoolId) ON DELETE CASCADE
       );
   `;
-    await pool.execute(createTableSql);
-    console.log('UserDrawCounter 資料表已確保存在');
+  await pool.execute(createTableSql);
+  console.log('UserDrawCounter 資料表已確保存在');
 };
 
 module.exports = createUserDrawCounterTable;

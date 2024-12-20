@@ -8,7 +8,7 @@
       <button @click="setDifficulty('Normal')">Normal</button>
       <button @click="setDifficulty('Hard')">Hard</button>
       <div v-if="difficulty">
-        <p>選擇的難度：{{ difficulty }}(賠率{{odds}})</p>
+        <p>選擇的難度：{{ difficulty }}(賠率{{ odds }})</p>
         <p>投入 Time Coin</p>
         <input type="number" v-model.number="betAmount" placeholder="至少 100 Time Coin" />
         <button @click="startGame" :disabled="!canStartGame">開始對戰</button>
@@ -21,7 +21,7 @@
       <p v-else>遊戲即將結束</p>
       <h3>回合 {{ currentRound }} / 10</h3>
       <p v-if="!targetTime">目標秒數: -</p>
-      <p v-else>目標秒數: {{ targetTime.toFixed(2) }}</p>
+      <p v-else>目標秒數: {{ targetTime }}</p>
       <button v-if="!targetTime" @click="getTargetTime">取得目標時間</button>
       <button v-if="targetTime && !timing" @click="startTiming">攻擊</button>
       <button v-if="timing" @click="stopTiming">停止</button>
@@ -41,6 +41,8 @@
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
   name: 'TimeSniper',
   props: {
@@ -52,6 +54,14 @@ export default {
       type: Number,
       required: true,
     },
+    gameId: {
+      type: String,
+      required: true,
+    },
+    walletAddress: {
+      type: String,
+      required: true
+    }
   },
   data() {
     return {
@@ -95,6 +105,19 @@ export default {
     },
   },
   methods: {
+    startCountdown() {
+      this.countdownTime = 180;
+      this.countdownInterval = setInterval(() => {
+        if (this.countdownTime > 0) {
+          this.countdownTime--;
+        } else {
+          clearInterval(this.countdownInterval);
+          this.gameFinished = true;
+          this.gameStarted = false;
+          this.finishGame();
+        }
+      }, 1000);
+    },
     setDifficulty(level) {
       this.difficulty = level;
       switch (this.difficulty) {
@@ -118,54 +141,6 @@ export default {
       }
       this.betAmountError = '';
       this.gameStarted = true;
-      this.startCountdown();
-
-      // 通知父組件
-      this.$emit('game-start', { amountInput: this.betAmount });
-    },
-    startCountdown() {
-      this.countdownTime = 180;
-      this.countdownInterval = setInterval(() => {
-        if (this.countdownTime > 0) {
-          this.countdownTime--;
-        } else {
-          clearInterval(this.countdownInterval);
-          this.gameFinished = true;
-          this.gameStarted = false;
-          this.finishGame();
-        }
-      }, 1000);
-    },
-    getTargetTime() {
-      this.targetTime = parseFloat((Math.random() * 9 + 1).toFixed(2));
-    },
-    startTiming() {
-      this.timing = true;
-      this.startTime = new Date().getTime();
-    },
-    stopTiming() {
-      this.endTime = new Date().getTime();
-      this.timing = false;
-
-      const actualTime = (this.endTime - this.startTime) / 1000;
-      const timeDifference = Math.abs(actualTime - this.targetTime);
-      this.currentRoundScore = Math.max(1, Math.floor((1 - timeDifference / 10) * 10));
-      this.totalScore += this.currentRoundScore;
-
-      // 回合結束
-      this.targetTime = null;
-      this.currentRound++;
-
-      // 如果到第10回合，結束遊戲
-      if (this.currentRound > 10) {
-        this.gameFinished = true;
-        this.gameStarted = false;
-        this.finishGame();
-      }
-    },
-    finishGame() {
-      clearInterval(this.countdownInterval);
-      const result = this.totalScore >= 60 ? 'win' : 'lose';
 
       switch (this.difficulty) {
         case 'Easy':
@@ -181,8 +156,54 @@ export default {
           break;
       }
 
+      this.startCountdown();
+
       // 通知父組件
-      this.$emit('game-result', { result, betAmount: this.betAmount, odds: this.odds, difficulty: this.difficulty });
+      this.$emit('game-start', { amountInput: this.betAmount, level: this.difficulty, odds: this.odds });
+    },
+    async getTargetTime() {
+      // 打後端取得時間
+      const payload = {
+        gameId: this.gameId,
+        walletAddress: this.walletAddress,
+        round: this.currentRound
+      }
+      await axios.post('http://localhost:3000/getTargetTime', payload).then(rs => {
+        this.targetTime = rs.data.targetTime;
+      });
+
+    },
+    async startTiming() {
+      this.timing = true;
+      // 打後端開始計時
+      const payload = {
+        gameId: this.gameId,
+        walletAddress: this.walletAddress,
+        round: this.currentRound
+      }
+      await axios.post('http://localhost:3000/start-timer', payload);
+    },
+    async stopTiming() {
+      this.timing = false;
+      // 打後端停止計時
+      this.totalScore += this.currentRoundScore;
+
+      // 回合結束
+      this.targetTime = null;
+      this.currentRound++;
+
+      // 如果到第10回合，結束遊戲
+      if (this.currentRound > 10) {
+        this.gameFinished = true;
+        this.gameStarted = false;
+        this.finishGame();
+      }
+    },
+    finishGame() {
+      clearInterval(this.countdownInterval);
+
+      // 通知父組件
+      this.$emit('game-result', { gameResult: "win", betAmount: this.betAmount, odds: this.odds, difficulty: this.difficulty });
     },
     resetGame() {
       clearInterval(this.countdownInterval);

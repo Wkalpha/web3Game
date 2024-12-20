@@ -60,8 +60,7 @@ const updateUserTimeCoinAfterGameOver = async (walletAddress, betAmount, userTim
         SET TimeCoin = TimeCoin + (? * ?)
         WHERE WalletAddress = ?
       `;
-    const [rows] = await pool.execute(sql, [betAmount, userTimeCoinOdds, walletAddress]);
-    return rows[0];
+    await pool.execute(sql, [betAmount, userTimeCoinOdds, walletAddress]);
 };
 
 const formatTimeCoin = async (walletAddress) => {

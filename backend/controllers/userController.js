@@ -1,6 +1,6 @@
-const { buyPlayTimes, getTimeCoinPlayTimes, deductTimeCoin, deductPlayTimes, formatTimeCoin, findOrAdd, updateUserTimeCoinAfterGameOver, getTimeCoin } = require('../models/userModel');
-const { updateMainPrizePoolAmount, updateLeaderboardPrizePoolAmount, updateMainPrizePoolAmountAfterGameOver, updateMainPrizePoolAmountAfterWithdraw } = require('../models/prizePoolModel');
-const { updateLeaderboardAmount, getLeaderboard, upsertLeaderboardAfterGameOver } = require('../models/leaderboardModel');
+const { buyPlayTimes, getTimeCoinPlayTimes, deductTimeCoin, formatTimeCoin, findOrAdd, getTimeCoin } = require('../models/userModel');
+const { updateMainPrizePoolAmount, updateLeaderboardPrizePoolAmount, updateMainPrizePoolAmountAfterWithdraw } = require('../models/prizePoolModel');
+const { updateLeaderboardAmount, getLeaderboard } = require('../models/leaderboardModel');
 const { upsertLeaderboardBetRecord } = require('../models/leaderboardBetRecordModel');
 const { transferEthToSpecificAddress, withdraw } = require('../services/web3utlts');
 
@@ -36,7 +36,13 @@ const updateUserBalanceWhenBuyETH = async (req, res) => {
   const { walletAddress, balanceChange } = req.body;
 
   try {
-    transferEthToSpecificAddress(walletAddress, balanceChange);
+    // 檢查 Time Coin 是否足夠
+    const timeCoin = await getTimeCoin(walletAddress);
+    if (timeCoin >= balanceChange) {
+      transferEthToSpecificAddress(walletAddress, balanceChange);
+    } else {
+      res.status(500).json("Time Coin 不足");
+    }
   } catch (error) {
     res.status(500).json({ error: 'Time Coin to ETH fail', details: error.message });
   }
@@ -87,67 +93,6 @@ const findOrAddUser = async (req, res) => {
 };
 
 /**
- * 開始遊戲
- */
-const gameStart = async (req, res) => {
-
-  const { walletAddress, amountInput } = req.body
-  try {
-    // 1.更新玩家的餘額
-    await deductTimeCoin(walletAddress, amountInput);
-    // 2.扣除玩家遊戲次數
-    await deductPlayTimes(walletAddress);
-    // 3.重查玩家餘額與次數回傳
-    const userInfo = await getTimeCoinPlayTimes(walletAddress);
-    res.json({
-      leftOfPlay: userInfo?.LeftOfPlay,
-      timeCoin: userInfo?.AdjustedTimeCoin
-    });
-
-  } catch (err) {
-    console.error('無法開始遊戲：', err);
-    res.status(500).send('資料庫錯誤');
-  }
-};
-
-/**
- * 遊戲結束
- */
-const gameOver = async (req, res) => {
-
-  const { walletAddress, betAmount, odds, gameResult, scores } = req.body;
-
-  try {
-    let userTimeCoinOdds = gameResult === 'win' ? 1 + odds : 0;
-    let prizePoolOdds = gameResult === 'lose' ? 1 : -odds;
-    
-    await updateUserTimeCoinAfterGameOver(walletAddress, betAmount, userTimeCoinOdds);
-    const userTimeCoin = await getTimeCoin(walletAddress);
-
-    // 更新主獎金池金額
-    await updateMainPrizePoolAmountAfterGameOver(betAmount, prizePoolOdds);
-
-    // 插入或更新 Leaderboard
-    const currentDate = new Date();
-    const year = currentDate.getFullYear();
-    const firstDayOfYear = new Date(year, 0, 1);
-    const pastDaysOfYear = Math.floor((currentDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
-    const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7); // 取得當前週數
-    const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`; // 例如：202450
-
-    const winIncrement = gameResult === 'win' ? 1 : 0;
-    const loseIncrement = gameResult === 'lose' ? 1 : 0;
-    const scoreAdjustment = gameResult === 'win' ? scores : -scores;
-
-    await upsertLeaderboardAfterGameOver(walletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
-
-  } catch (err) {
-    console.error('遊戲結束但發生錯誤', err);
-    res.status(500).send('資料庫錯誤');
-  }
-};
-
-/**
  * 提取合約所有 ETH
  */
 const withdrawContract = async (req, res) => {
@@ -161,7 +106,5 @@ module.exports = {
   updateUserBalanceWhenBuyETH,
   leaderboardBet,
   findOrAddUser,
-  gameStart,
-  gameOver,
   withdrawContract
 };

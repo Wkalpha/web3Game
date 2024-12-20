@@ -2,13 +2,13 @@
   <div id="app">
     <h1>Time Battle DApp</h1>
 
-    <div v-if="owner">
+    <div v-if="owner && wallet_connected && login">
       您好，創始者
       <button @click="withDraw">提取合約</button>
     </div>
 
-    <p>合約地址: {{ contractAddress }}</p>
-    <button v-if="!wallet_connected" @click="connectWallet">連結錢包</button>
+    <p v-if="wallet_connected && login">合約地址: {{ contractAddress }}</p>
+    <button v-if="!login" @click="connectWallet" :disabled="wallet_connected">連結錢包</button>
 
     <div v-if="!blockchainConfirm" class="overlay">
       <div class="loading-message">
@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div v-if="walletAddress">
+    <div v-if="login">
       <!-- 主要內容區域 -->
       <div class="main-container">
         <!-- 左側：資訊展示區 -->
@@ -55,7 +55,7 @@
       <!-- 下方：遊戲區域 -->
       <div class="game-section">
         <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-balance="userInfo.timeCoin"
-          @game-result="handleGameResult" @game-start="handleGameStart" />
+          @game-result="handleGameResult" @game-start="handleGameStart" :game-id="gameId" :wallet-address="walletAddress"/>
       </div>
 
       <!-- 顯示排行榜 -->
@@ -94,6 +94,7 @@ export default {
       wallet_connected: false,
       showBalance: false, // 控制餘額是否顯示
       prizePool: null,
+      login: false,
       userInfo: {
         timeCoin: 0,
         leftOfPlay: 0, // 剩餘可遊玩次數
@@ -112,7 +113,9 @@ export default {
       showLeaderboard: false, // 控制排行榜顯示的開關
       leaderboardPlayers: [], // 從 API 獲取的排行榜數據
       leaderboardPrizePoolTimeCoin: 0,
-      isLoading: false // 是否正在加載排行榜數據
+      isLoading: false, // 是否正在加載排行榜數據
+
+      gameId: null
       //test
     };
   },
@@ -155,25 +158,36 @@ export default {
     async connectWallet() {
       if (window.ethereum) {
         try {
+          this.wallet_connected = true;
           await window.ethereum.request({ method: 'eth_requestAccounts' });
           this.web3 = new Web3(window.ethereum);
           const accounts = await this.web3.eth.getAccounts();
           if (accounts.length > 0) {
-            this.wallet_connected = true
             this.walletAddress = accounts[0];
             const balanceWei = await this.web3.eth.getBalance(this.walletAddress);
             this.balance = this.web3.utils.fromWei(balanceWei, 'ether');
 
+            const message = `Sign${this.walletAddress}${Date.now()}`;
+
+            // 用戶對消息進行簽名
+            const signature = await this.web3.eth.personal.sign(message, this.walletAddress, '');
+
             // 發送請求到後端，檢查用戶是否已存在
-            await this.checkUserInfo();
+            await this.checkUserInfo(message, signature);
 
             await this.initContract(); // 連結錢包後初始化合約
             await this.getMainPrizePool();
 
             this.connectWebSocket();
+
           }
         } catch (error) {
-          console.error('連結錢包失敗：', error);
+          if (error.code === 100) {
+            console.warn('User rejected the signature request.');
+          } else {
+            console.error('An error occurred during signature request:', error);
+          }
+          this.wallet_connected = false;
         }
       } else {
         alert('您尚未安裝 Metamask');
@@ -189,14 +203,19 @@ export default {
         }
       }
     },
-    async checkUserInfo() {
+    async checkUserInfo(message, signature) {
+      const payload = {
+        walletAddress: this.walletAddress,
+        message,
+        signature
+      };
       try {
-        const response = await axios.post('http://localhost:3000/find-or-add', {
-          walletAddress: this.walletAddress
-        });
+        const response = await axios.post('http://localhost:3000/find-or-add', payload);
 
         // 設定 userInfo 並顯示歡迎信息
         this.userInfo = response.data;
+        this.login = true;
+        this.wallet_connected = true
       } catch (error) {
         console.error("檢查用戶信息失敗:", error);
       }
@@ -235,7 +254,7 @@ export default {
       this.userInfo.timeCoin = newUserTimeCoin;
       this.leaderboardPlayers = newLeaderboard;
     },
-    async handleGameResult({ result, betAmount, odds, difficulty }) {
+    async handleGameResult({ gameResult, betAmount, odds, difficulty }) {
       let scores = 0;
       switch (difficulty) {
         case 'Easy':
@@ -252,12 +271,24 @@ export default {
       }
       // 更新資料庫
       try {
+        const message = JSON.stringify({
+          walletAddress: this.walletAddress,
+          gameResult: gameResult,
+          betAmount: betAmount,
+          odds: odds,
+          difficulty: difficulty,
+          scores: scores,
+          timestamp: Date.now(), // 保證唯一性
+          nonce: Math.floor(Math.random() * 1000000) // 隨機生成的 nonce
+        });
+
+        // 用戶對消息進行簽名
+        const signature = await this.web3.eth.personal.sign(message, this.walletAddress, '');
+
         const response = await axios.post('http://localhost:3000/update-balance-when-game-over', {
-          walletAddress: this.walletAddress, // 替換為實際錢包地址
-          gameResult: result,
-          betAmount,
-          odds,
-          scores
+          walletAddress: this.walletAddress,
+          message,
+          signature
         });
 
         this.userInfo.timeCoin = response.data.userTimeCoin;
@@ -269,16 +300,20 @@ export default {
         console.error('更新餘額失敗:', error);
       }
     },
-    async handleGameStart({ amountInput }) {
+    async handleGameStart({ amountInput, level, odds }) {
       // 扣除玩家 Time Coin 與 遊玩次數
       try {
-        const response = await axios.post('http://localhost:3000/update-balance-when-game-start', {
-          walletAddress: this.walletAddress, // 替換為實際錢包地址
+        await axios.post('http://localhost:3000/update-balance-when-game-start', {
+          walletAddress: this.walletAddress,
           amountInput,
+          level,
+          odds
+        }).then(rs => {
+          this.userInfo.timeCoin = rs.data.timeCoin;
+          this.userInfo.leftOfPlay = rs.data.leftOfPlay;
+          this.gameId = rs.data.gameId;
+          console.log(this.gameId)
         });
-
-        this.userInfo.timeCoin = response.data.timeCoin;
-        this.userInfo.leftOfPlay = response.data.leftOfPlay;
 
       } catch (error) {
         console.error('更新餘額失敗:', error);

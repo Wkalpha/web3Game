@@ -11,6 +11,8 @@ const createUserInventoryTable = require('./tables/UserInventory');
 const createUpdateTop3RanksFunction = require('./functions/UpdateTop3Ranks');
 const createResetLeftOfPlayDailyEvent = require('./events/ResetLeftOfPlayDaily');
 const createUpdateLeaderboardWeeklyEvent = require('./events/UpdateLeaderboardWeekly');
+const createGameInfoTable = require('./tables/GameInfo');
+const createGameLogTable = require('./tables/GameLog');
 
 (async () => {
     try {
@@ -24,9 +26,12 @@ const createUpdateLeaderboardWeeklyEvent = require('./events/UpdateLeaderboardWe
         await createUserDrawLogTable();
         await createUserDrawCounterTable();
         await createUserInventoryTable();
+        await createGameInfoTable();
+        await createGameLogTable();
         await createUpdateTop3RanksFunction();
         await createResetLeftOfPlayDailyEvent();
         await createUpdateLeaderboardWeeklyEvent();
+
         console.log('所有表、函數、事件初始化完成');
     } catch (err) {
         console.error('初始化失敗：', err);
