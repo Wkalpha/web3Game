@@ -7,11 +7,12 @@ const createGameInfoTable = async () => {
       WalletAddress VARCHAR(255) NOT NULL,
       GameId VARCHAR(50) NOT NULL,
       Level NVARCHAR(50) DEFAULT NULL,
-      Odds DECIMAL(5,2) NOT NULL,
+      Odds DECIMAL(5, 2) NOT NULL,
       BetAmount INT DEFAULT NULL,
       Profit INT DEFAULT NULL,
       Result VARCHAR(50) DEFAULT NULL,
-      CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_walletAddress_gameId (WalletAddress, GameId) -- 複合唯一索引
     )
   `;
   await pool.execute(createTableSql);

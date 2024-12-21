@@ -1,8 +1,8 @@
 const { updateMainPrizePoolAmountAfterGameOver } = require('../models/prizePoolModel');
 const { upsertLeaderboardAfterGameOver, getLeaderboard } = require('../models/leaderboardModel');
 const { deductPlayTimes, updateUserTimeCoinAfterGameOver, getTimeCoin, deductTimeCoin, getTimeCoinPlayTimes } = require('../models/userModel');
-const { insertWhenGetTargetTime, updateWhenStartTimer, updateWhenEndTimer, queryByGameIdAndRound } = require('../models/gameLogModel');
-const { insertWhenGameStart, updateWhenGameOver } = require('../models/gameInfoModel');
+const { insertWhenGetTargetTime, updateWhenStartTimer, updateWhenEndTimer, queryByGameIdAndRound, sumScoreByGameId } = require('../models/gameLogModel');
+const { insertWhenGameStart, updateWhenGameOver, queryGameInfoByGameId } = require('../models/gameInfoModel');
 const { v4: uuidv4 } = require('uuid');
 
 /**
@@ -52,12 +52,12 @@ const getTargetTime = async (req, res) => {
  * 開始計時
  */
 const startTimer = async (req, res) => {
-    const { walletAddress, gameId, round } = req.body;
-    const startTime = ((new Date().getTime() % 60000) / 1000).toFixed(2);
+    const { gameId, round } = req.body;
+    const startTime = Date.now();
 
     try {
         // 儲存開始時間到數據庫
-        await updateWhenStartTimer(startTime, gameId, round, walletAddress);
+        await updateWhenStartTimer(gameId, startTime, round);
         res.json({ success: true });
     } catch (err) {
         console.error('無法開始計時：', err);
@@ -69,23 +69,26 @@ const startTimer = async (req, res) => {
  * 停止計時
  */
 const endTimer = async (req, res) => {
-    const { walletAddress, gameId, round } = req.body;
-    const endTime = ((new Date().getTime() % 60000) / 1000).toFixed(2);
+    const { gameId, round } = req.body;
+    const endTime = Date.now();
 
     try {
-        const startTime = await queryByGameIdAndRound(gameId, round);
-        const elapsedTime = (parseFloat(endTime) - parseFloat(startTime)); // 秒數計算
+        const result = await queryByGameIdAndRound(gameId, round);
+
+        const elapsedTime = (((endTime - result.StartTime) % 60000) / 1000).toFixed(2); // 經過秒數
+
+        const difference = Math.abs(elapsedTime - result.TargetTime);
 
         // 計算分差
-        const scores = Math.max(1, Math.floor((1 - elapsedTime / 10) * 10));
+        const scores = Math.max(0, Math.floor((1 - difference / 10) * 10));
 
-        const roundData = await updateWhenEndTimer({ walletAddress, gameId, round, elapsedTime, scores });
+        const roundData = await updateWhenEndTimer(gameId, endTime, round, elapsedTime, scores);
 
         if (roundData.affectedRows === 0) {
             return res.status(404).json({ success: false, message: '更新失敗' });
         }
 
-        res.json({ success: true, scores });
+        res.json({ success: true, scores, elapsedTime });
     } catch (err) {
         console.error('無法停止計時：', err);
         res.status(500).send('資料庫錯誤');
@@ -96,39 +99,45 @@ const endTimer = async (req, res) => {
  * 遊戲結束
  */
 const gameOver = async (req, res) => {
-    const { message } = req.body;
-    const parsedMessage = JSON.parse(message);
-    const { walletAddress, gameResult, betAmount, odds, scores } = parsedMessage;
+    const { gameId } = req.body;
 
     try {
-        const userTimeCoinOdds = gameResult === 'win' ? 1 + odds : 0;
-        const prizePoolOdds = gameResult === 'lose' ? 1 : -odds;
+        // 拿 gameId 去 GameLog 把 Score 加總後判斷勝負，門檻值要根據不同的難度有所高低
+        const totalScore = await sumScoreByGameId(gameId);
+
+        // GameInfo 找資訊
+        const gameInfo = await queryGameInfoByGameId(gameId);
+
+        // 判斷輸贏
+        const gameResult = determineGameResult(totalScore, gameInfo.Level);
+        
+        const userTimeCoinOdds = gameResult.winOrLose === 'win' ? 1 + parseFloat(gameInfo.Odds) : 0;
+        const prizePoolOdds = gameResult.winOrLose === 'lose' ? 1 : -parseFloat(gameInfo.Odds);
 
         // 1. 更新玩家的餘額
-        await updateUserTimeCoinAfterGameOver(walletAddress, betAmount, userTimeCoinOdds);
+        await updateUserTimeCoinAfterGameOver(gameInfo.WalletAddress, gameInfo.BetAmount, userTimeCoinOdds);
 
         // 2. 獲取玩家的餘額
-        const userTimeCoin = await getTimeCoin(walletAddress);
+        const userTimeCoin = await getTimeCoin(gameInfo.WalletAddress);
 
         // 3. 更新主獎金池金額
-        await updateMainPrizePoolAmountAfterGameOver(betAmount, prizePoolOdds);
+        await updateMainPrizePoolAmountAfterGameOver(gameInfo.BetAmount, prizePoolOdds);
 
         // 4. 插入或更新排行榜數據
-        const currentDate = new Date();
-        const year = currentDate.getFullYear();
-        const firstDayOfYear = new Date(year, 0, 1);
-        const pastDaysOfYear = Math.floor((currentDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
-        const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7); // 取得當前週數
-        const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`; // 例如：202450
+        const yearWeek = calculateYearWeek() // 例如：202450
 
-        const winIncrement = gameResult === 'win' ? 1 : 0;
-        const loseIncrement = gameResult === 'lose' ? 1 : 0;
-        const scoreAdjustment = gameResult === 'win' ? scores : -scores;
+        const winIncrement = gameResult.winOrLose === 'win' ? 1 : 0;
+        const loseIncrement = gameResult.winOrLose === 'lose' ? 1 : 0;
+        const scoreAdjustment = gameResult.winOrLose === 'win' ? gameResult.scoreAdjustment : -gameResult.scoreAdjustment;
 
-        await upsertLeaderboardAfterGameOver(walletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
+        await upsertLeaderboardAfterGameOver(gameInfo.WalletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
 
         // 5. 獲取排行榜數據
         const leaderboard = await getLeaderboard(yearWeek);
+
+        // 6. 更新 GameInfo
+        const profit = gameInfo.BetAmount * userTimeCoinOdds;
+        await updateWhenGameOver(gameId, gameResult.winOrLose, profit);
 
         res.json({
             userTimeCoin,
@@ -139,6 +148,51 @@ const gameOver = async (req, res) => {
         res.status(500).send('資料庫錯誤');
     }
 };
+
+/**
+ * 取得當年的第幾星期 例如 2024/12/21 會回傳 202451
+ * @returns 
+ */
+const calculateYearWeek = () => {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const firstDayOfYear = new Date(year, 0, 1);
+    const pastDaysOfYear = Math.floor((currentDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
+    const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7); // 取得當前週數
+    return `${year}${weekNumber.toString().padStart(2, '0')}`; // 例如：202450
+};
+
+/**
+ * 傳入分數和難度，判斷輸贏並返回固定的分數調整
+ * @param {Int} totalScores - 玩家總分
+ * @param {String} level - 遊戲難度 (easy, normal, hard)
+ * @returns {Object} 包含 GameResult 和 ScoreAdjustment 的物件
+ */
+const determineGameResult = (totalScores, level) => {
+    const levelThreshold = {
+        easy: 50,
+        normal: 70,
+        hard: 90
+    };
+
+    const scoreAdjustmentRules = {
+        easy: { win: 1, lose: -1 },
+        normal: { win: 3, lose: -3 },
+        hard: { win: 5, lose: -5 }
+    };
+
+    // 判斷門檻值，默認值為 50
+    const threshold = levelThreshold[level.toLowerCase()] || 50;
+
+    // 判斷遊戲結果
+    const winOrLose = totalScores >= threshold ? 'win' : 'lose';
+
+    // 根據規則返回分數調整
+    const scoreAdjustment = scoreAdjustmentRules[level.toLowerCase()]?.[winOrLose] || 0;
+
+    return { winOrLose, scoreAdjustment };
+};
+
 
 module.exports = {
     gameStart,

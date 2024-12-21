@@ -8,11 +8,12 @@ const createGameLogTable = async () => {
       TargetTime DECIMAL(10, 2) DEFAULT NULL,
       GameId VARCHAR(50) NOT NULL,
       Round INT,
-      StartTime VARCHAR(20) DEFAULT NULL,
-      EndTime VARCHAR(20) DEFAULT NULL,
-      ElapsedTime DECIMAL(10, 2) DEFAULT NULL,
+      StartTime BIGINT DEFAULT NULL, -- Unix Timestamp (毫秒)
+      EndTime BIGINT DEFAULT NULL, -- Unix Timestamp (毫秒)
+      ElapsedTime DECIMAL(5, 2) DEFAULT NULL,
       Scores INT DEFAULT NULL,
-      CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_gameId_round (GameId, Round) -- 複合唯一索引
     )
   `;
   await pool.execute(createTableSql);

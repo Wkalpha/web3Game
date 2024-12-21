@@ -54,10 +54,6 @@ export default {
       type: Number,
       required: true,
     },
-    gameId: {
-      type: String,
-      required: true,
-    },
     walletAddress: {
       type: String,
       required: true
@@ -65,6 +61,7 @@ export default {
   },
   data() {
     return {
+      gameId: null,
       difficulty: null,
       betAmount: null,
       odds: 0,
@@ -134,7 +131,7 @@ export default {
           break;
       }
     },
-    startGame() {
+    async startGame() {
       if (this.betAmount <= 0 || this.betAmount > this.userBalance) {
         this.betAmountError = '下注金額必須大於0且不能超過餘額';
         return;
@@ -156,10 +153,20 @@ export default {
           break;
       }
 
-      this.startCountdown();
+      const payload = {
+        walletAddress: this.walletAddress,
+        level: this.difficulty,
+        odds: this.odds,
+        amountInput: this.betAmount
+      }
 
-      // 通知父組件
-      this.$emit('game-start', { amountInput: this.betAmount, level: this.difficulty, odds: this.odds });
+      await axios.post('http://localhost:3000/update-balance-when-game-start', payload).then(rs => {
+        this.startCountdown();
+        this.gameId = rs.data.gameId;
+        // 通知父組件
+        this.$emit('game-start', { leftOfPlay: rs.data.leftOfPlay, timeCoin: rs.data.timeCoin });
+      })
+
     },
     async getTargetTime() {
       // 打後端取得時間
@@ -178,7 +185,6 @@ export default {
       // 打後端開始計時
       const payload = {
         gameId: this.gameId,
-        walletAddress: this.walletAddress,
         round: this.currentRound
       }
       await axios.post('http://localhost:3000/start-timer', payload);
@@ -186,7 +192,14 @@ export default {
     async stopTiming() {
       this.timing = false;
       // 打後端停止計時
-      this.totalScore += this.currentRoundScore;
+      const payload = {
+        gameId: this.gameId,
+        round: this.currentRound
+      }
+
+      await axios.post('http://localhost:3000/end-timer', payload).then(rs => {
+        this.totalScore += rs.data.scores
+      })
 
       // 回合結束
       this.targetTime = null;
@@ -199,11 +212,19 @@ export default {
         this.finishGame();
       }
     },
-    finishGame() {
+    async finishGame() {
       clearInterval(this.countdownInterval);
 
-      // 通知父組件
-      this.$emit('game-result', { gameResult: "win", betAmount: this.betAmount, odds: this.odds, difficulty: this.difficulty });
+      const payload = {
+        gameId: this.gameId
+      }
+
+      await axios.post('http://localhost:3000/update-balance-when-game-over', payload).then(rs => {
+        // 通知父組件
+        this.$emit('game-result', { userTimeCoin: rs.data.userTimeCoin, leaderboard: rs.data.leaderboard });
+      });
+
+
     },
     resetGame() {
       clearInterval(this.countdownInterval);

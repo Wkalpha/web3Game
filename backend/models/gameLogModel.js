@@ -28,12 +28,13 @@ const updateWhenStartTimer = async (gameId, startTime, round) => {
  */
 const queryByGameIdAndRound = async (gameId, round) => {
     const sql = `
-        SELECT StartTime 
+        SELECT StartTime, TargetTime
         FROM GameLog
-        WHERE GameId = ?, Round = ?
+        WHERE GameId = ? AND Round = ?;
     `;
     const [rows] = await pool.execute(sql, [gameId, round]);
-    return rows[0].StartTime;
+    const { StartTime, TargetTime } = rows[0];
+    return { StartTime, TargetTime };
 };
 
 /**
@@ -49,10 +50,28 @@ const updateWhenEndTimer = async (gameId, endTime, round, elapsedTime, scores) =
     return result;
 };
 
+/**
+ * 根據 GameId 加總 Score
+ * @param {*} gameId 
+ * @returns {number} TotalScore
+ */
+const sumScoreByGameId = async (gameId) => {
+    const sql = `
+        SELECT SUM(Scores) AS TotalScore
+        FROM GameLog
+        WHERE GameId = ?
+    `;
+    const [rows] = await pool.execute(sql, [gameId]);
+
+    // 從結果中提取總分數
+    const totalScore = rows[0]?.TotalScore || 0; // 若無結果，回傳 0
+    return totalScore;
+};
+
 module.exports = {
     insertWhenGetTargetTime,
     updateWhenStartTimer,
     queryByGameIdAndRound,
-    updateWhenEndTimer
-    
+    updateWhenEndTimer,
+    sumScoreByGameId
 };

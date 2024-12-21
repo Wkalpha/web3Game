@@ -55,7 +55,7 @@
       <!-- 下方：遊戲區域 -->
       <div class="game-section">
         <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-balance="userInfo.timeCoin"
-          @game-result="handleGameResult" @game-start="handleGameStart" :game-id="gameId" :wallet-address="walletAddress"/>
+          @game-result="handleGameResult" @game-start="handleGameStart" :wallet-address="walletAddress"/>
       </div>
 
       <!-- 顯示排行榜 -->
@@ -114,8 +114,6 @@ export default {
       leaderboardPlayers: [], // 從 API 獲取的排行榜數據
       leaderboardPrizePoolTimeCoin: 0,
       isLoading: false, // 是否正在加載排行榜數據
-
-      gameId: null
       //test
     };
   },
@@ -254,70 +252,20 @@ export default {
       this.userInfo.timeCoin = newUserTimeCoin;
       this.leaderboardPlayers = newLeaderboard;
     },
-    async handleGameResult({ gameResult, betAmount, odds, difficulty }) {
-      let scores = 0;
-      switch (difficulty) {
-        case 'Easy':
-          scores = 2;
-          break;
-        case 'Normal':
-          scores = 5;
-          break;
-        case 'Hard':
-          scores = 10;
-          break;
-        default:
-          break;
-      }
-      // 更新資料庫
+    async handleGameResult({userTimeCoin, leaderboard}) {
       try {
-        const message = JSON.stringify({
-          walletAddress: this.walletAddress,
-          gameResult: gameResult,
-          betAmount: betAmount,
-          odds: odds,
-          difficulty: difficulty,
-          scores: scores,
-          timestamp: Date.now(), // 保證唯一性
-          nonce: Math.floor(Math.random() * 1000000) // 隨機生成的 nonce
-        });
+        this.userInfo.timeCoin = userTimeCoin;
+        this.leaderboardPlayers = leaderboard;
 
-        // 用戶對消息進行簽名
-        const signature = await this.web3.eth.personal.sign(message, this.walletAddress, '');
-
-        const response = await axios.post('http://localhost:3000/update-balance-when-game-over', {
-          walletAddress: this.walletAddress,
-          message,
-          signature
-        });
-
-        this.userInfo.timeCoin = response.data.userTimeCoin;
-        this.leaderboardPlayers = response.data.leaderboard;
-
-        await this.getMainPrizePool();
+        // await this.getMainPrizePool(); // 如果後端有更新並且發webSocket 這行就可以拔掉了
 
       } catch (error) {
         console.error('更新餘額失敗:', error);
       }
     },
-    async handleGameStart({ amountInput, level, odds }) {
-      // 扣除玩家 Time Coin 與 遊玩次數
-      try {
-        await axios.post('http://localhost:3000/update-balance-when-game-start', {
-          walletAddress: this.walletAddress,
-          amountInput,
-          level,
-          odds
-        }).then(rs => {
-          this.userInfo.timeCoin = rs.data.timeCoin;
-          this.userInfo.leftOfPlay = rs.data.leftOfPlay;
-          this.gameId = rs.data.gameId;
-          console.log(this.gameId)
-        });
-
-      } catch (error) {
-        console.error('更新餘額失敗:', error);
-      }
+    async handleGameStart({ leftOfPlay, timeCoin }) {
+      this.userInfo.timeCoin = timeCoin;
+      this.userInfo.leftOfPlay = leftOfPlay;
     },
     toggleBalanceVisibility() {
       this.showBalance = !this.showBalance;
