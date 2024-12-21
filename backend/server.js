@@ -6,6 +6,8 @@ const userRoutes = require('./routes/userRoutes.js');
 const prizePoolRoutes = require('./routes/prizeRoutes.js');
 const leaderboardRoutes = require('./routes/leaderboardRoutes.js');
 const gameRoutes = require('./routes/gameRoutes.js');
+const prizeItemPoolRoutes = require('./routes/prizeItemPoolRoutes.js');
+const prizeItemRoutes = require('./routes/prizeItemRoutes.js');
 require('./database/index.js'); // 建立 Table、Function、Event
 const { initWebSocketService } = require('./services/webSocketService');
 initWebSocketService(3001); // 啟動 WebSocket 服務
@@ -32,6 +34,8 @@ app.use('/', userRoutes);
 app.use('/', prizePoolRoutes);
 app.use('/', leaderboardRoutes);
 app.use('/', gameRoutes);
+app.use('/', prizeItemPoolRoutes);
+app.use('/', prizeItemRoutes);
 
 // 監聽合約事件
 handleTokensPurchased();

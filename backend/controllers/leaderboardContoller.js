@@ -14,7 +14,7 @@ const queryLeaderboard = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ error: 'Bet fail', details: error.message });
+    res.status(500).json({ error: '取得排行榜失敗', details: error.message });
   }
 };
 

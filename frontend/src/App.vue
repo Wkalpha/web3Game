@@ -33,10 +33,10 @@
               <p>獎金池: {{ prizePool }} Time Coin</p>
             </div>
             <div class="leaderboard-pool">
-              <p>排行榜獎金池: {{ leaderboardPrizePool }} Time Coin</p>
+              <p>排行榜獎金池: {{ leaderboardPrizePoolTimeCoin }} Time Coin</p>
               <!-- 顯示排行榜按鈕 -->
-              <button>上週排行榜結算</button>
-              <button @click="openLeaderboard">查看排行榜</button>
+              <button @click="openLeaderboard(-1)">上週排行榜結算</button>
+              <button @click="openLeaderboard(1)">查看排行榜</button>
             </div>
           </div>
         </div>
@@ -48,14 +48,14 @@
           <button @click="openETHToTimeCoinInputBox">兌換 Time Coin</button>
           <button @click="openTimeCoinToETHInputBox">兌換 ETH</button>
           <button @click="openTimeCoinToPlayTimesInputBox">購買遊玩次數</button>
-          <PrizeItemPool />
+          <PrizeItemPool :wallet-address="walletAddress"/>
         </div>
       </div>
 
       <!-- 下方：遊戲區域 -->
       <div class="game-section">
         <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-balance="userInfo.timeCoin"
-          @game-result="handleGameResult" @game-start="handleGameStart" :wallet-address="walletAddress"/>
+          @game-result="handleGameResult" @game-start="handleGameStart" :wallet-address="walletAddress" />
       </div>
 
       <!-- 顯示排行榜 -->
@@ -108,13 +108,10 @@ export default {
       playTimes: null,
       ownerAddress: process.env.VUE_APP_OWNER_WALLET_ADDRESS,
       contractAddress: process.env.VUE_APP_CONTRACT_ADDRESS,
-
-      //test
       showLeaderboard: false, // 控制排行榜顯示的開關
       leaderboardPlayers: [], // 從 API 獲取的排行榜數據
       leaderboardPrizePoolTimeCoin: 0,
       isLoading: false, // 是否正在加載排行榜數據
-      //test
     };
   },
   computed: {
@@ -175,6 +172,7 @@ export default {
 
             await this.initContract(); // 連結錢包後初始化合約
             await this.getMainPrizePool();
+            await this.getLeaderboardPrizePool();
 
             this.connectWebSocket();
 
@@ -218,17 +216,42 @@ export default {
         console.error("檢查用戶信息失敗:", error);
       }
     },
-    async openLeaderboard() {
+    async openLeaderboard(when) {
       try {
         // 開啟 loading 狀態
         this.isLoading = true;
 
+        // 獲取當前日期並計算目標日期
         const currentDate = new Date();
-        const year = currentDate.getFullYear();
+        let targetDate = new Date(currentDate);
+
+        if (when === -1) {
+          // 計算上一週的日期
+          targetDate.setDate(targetDate.getDate() - 7);
+        }
+
+        const year = targetDate.getFullYear();
         const firstDayOfYear = new Date(year, 0, 1);
-        const pastDaysOfYear = Math.floor((currentDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
-        const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7); // 取得當前週數
-        const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`; // 例如：202450
+        const pastDaysOfYear = Math.floor((targetDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
+
+        // 計算目標週數
+        let weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+
+        // 處理跨年的情況
+        let yearWeek;
+        if (weekNumber === 0) {
+          const previousYear = year - 1;
+          const lastDayOfPreviousYear = new Date(previousYear, 11, 31);
+          const lastWeekOfPreviousYear = Math.ceil(
+            (Math.floor((lastDayOfPreviousYear - new Date(previousYear, 0, 1)) / (24 * 60 * 60 * 1000)) +
+              lastDayOfPreviousYear.getDay() +
+              1) /
+            7
+          );
+          yearWeek = `${previousYear}${lastWeekOfPreviousYear.toString().padStart(2, '0')}`;
+        } else {
+          yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`;
+        }
 
         await axios.post('http://localhost:3000/getLeaderboard', {
           yearWeek
@@ -238,7 +261,7 @@ export default {
 
           // 顯示排行榜
           this.showLeaderboard = true;
-        })
+        });
 
       } catch (error) {
         console.error('獲取排行榜失敗:', error);
@@ -252,7 +275,7 @@ export default {
       this.userInfo.timeCoin = newUserTimeCoin;
       this.leaderboardPlayers = newLeaderboard;
     },
-    async handleGameResult({userTimeCoin, leaderboard}) {
+    async handleGameResult({ userTimeCoin, leaderboard }) {
       try {
         this.userInfo.timeCoin = userTimeCoin;
         this.leaderboardPlayers = leaderboard;
@@ -477,6 +500,11 @@ export default {
     async getMainPrizePool() {
       const response = await axios.get('http://localhost:3000/getMainPrizePool');
       this.prizePool = response.data.amount
+    },
+
+    async getLeaderboardPrizePool() {
+      const response = await axios.get('http://localhost:3000/getLeaderboardPrizePool');
+      this.leaderboardPrizePoolTimeCoin = response.data.amount
     },
 
     // websocket

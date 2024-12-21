@@ -64,7 +64,7 @@ const updateLeaderboardPrizePoolAmount = async (amount) => {
         const message = {
             event: 'LeaderboardPrizePoolUpdated',
             data: {
-                prizePoolTimeCoin: amount
+                leaderboardPrizePoolTimeCoin: amount
             }
         };
         sendWebSocketMessage(message); // 發送 WebSocket 消息

@@ -1,5 +1,6 @@
 <template>
   <div class="game-container">
+    <UserInventory />
     <h2>遊戲</h2>
     <h2>剩餘可遊玩次數{{ leftOfPlay }}</h2>
     <div v-if="!gameStarted && !gameFinished">
@@ -26,6 +27,7 @@
       <button v-if="targetTime && !timing" @click="startTiming">攻擊</button>
       <button v-if="timing" @click="stopTiming">停止</button>
       <p v-if="timing">計時中...</p>
+      <p v-if="!timing">您的秒數:{{ elapsedTime }}</p>
       <p v-if="!timing && currentRoundScore !== null">本回合得分：{{ currentRoundScore }}</p>
       <p>總分：{{ totalScore }}</p>
     </div>
@@ -42,6 +44,7 @@
 
 <script>
 import axios from 'axios';
+import UserInventory from './UserInventory.vue';
 
 export default {
   name: 'TimeSniper',
@@ -59,6 +62,9 @@ export default {
       required: true
     }
   },
+  components: {
+    UserInventory,
+  },
   data() {
     return {
       gameId: null,
@@ -69,8 +75,7 @@ export default {
       gameStarted: false,
       targetTime: null,
       timing: false,
-      startTime: null,
-      endTime: null,
+      elapsedTime: null, // 計時的經過時間
       currentRound: 1,
       totalScore: 0,
       currentRoundScore: null,
@@ -198,7 +203,8 @@ export default {
       }
 
       await axios.post('http://localhost:3000/end-timer', payload).then(rs => {
-        this.totalScore += rs.data.scores
+        this.totalScore += rs.data.scores;
+        this.elapsedTime = rs.data.elapsedTime;
       })
 
       // 回合結束
@@ -233,9 +239,8 @@ export default {
       this.betAmountError = '';
       this.gameStarted = false;
       this.targetTime = null;
+      this.elapsedTime = null;
       this.timing = false;
-      this.startTime = null;
-      this.endTime = null;
       this.currentRound = 1;
       this.totalScore = 0;
       this.currentRoundScore = null;

@@ -1,55 +1,88 @@
 <template>
     <div class="prize-item-pool">
-        <h1>抽獎機制</h1>
-        <div class="prize-list">
-            <div v-for="(prize, index) in prizes" :key="index" class="prize-item">
-                {{ prize.name }}
+        <h1>抽獎</h1>
+        <div v-if="prizeItemPools.length === 0">加載中...</div>
+        <div v-else>
+            <div v-for="(prizeItemPool, index) in prizeItemPools" :key="index">
+                <button @click="openPrizeModal(prizeItemPool.PoolName)" class="draw-button">
+                    {{ prizeItemPool.PoolName }}
+                </button>
             </div>
         </div>
-        <button @click="drawPrize" class="draw-button">抽獎</button>
-        <div v-if="drawnPrize" class="drawn-prize">
-            <h2>恭喜您獲得獎品：{{ drawnPrize.name }}</h2>
+        <!-- Modal 彈窗 -->
+        <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+            <div class="modal-content">
+                <h2>{{ selectedPoolName }}</h2>
+                <button @click="drawPrize(selectedPoolName)" class="draw-button">
+                    開始抽獎
+                </button>
+                <ul>
+                    <li v-for="(item, index) in prizeItems" :key="index">
+                        <strong>{{ item.ItemName }}</strong> - 數量: {{ item.ItemValue }} - 機率: {{ item.DropRate }}
+                    </li>
+                </ul>
+                <button @click="closeModal" class="close-button">關閉</button>
+            </div>
         </div>
     </div>
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
     name: 'PrizeItemPool',
+    props: {
+        walletAddress: {
+            type: String,
+            required: true
+        }
+    },
     data() {
         return {
-            prizes: [
-                { name: '充值卡 $10', weight: 1 },
-                { name: '充值卡 $50', weight: 1 },
-                { name: '充值卡 $100', weight: 1 },
-                { name: '零食包', weight: 95 },
-                { name: '消費券 $5', weight: 1 },
-                { name: '消費券 $20', weight: 1 }
-            ],
-            drawnPrize: null
+            prizeItemPools: [],
+            prizeItems: [],
+            showModal: false, // 控制 Modal 顯示
+            selectedPoolName: '' // 選中的獎池名稱
         };
     },
+    mounted() {
+        this.getPrizeItemPool(); // 調用方法
+    },
     methods: {
-        drawPrize() {
-            if (this.prizes.length === 0) {
-                alert('獎品已被抽完了！');
-                return;
+        // 打開 Modal 並加載對應獎品列表
+        async openPrizeModal(poolName) {
+            this.selectedPoolName = poolName;
+            this.showModal = true;
+            await this.getPrizeItem(poolName); // 加載獎品列表
+        },
+        // 關閉 Modal
+        closeModal() {
+            this.showModal = false;
+        },
+        async getPrizeItem(poolName) {
+            //開啟相對應獎池
+            const payload = {
+                poolName: poolName
             }
-
-            const totalWeight = this.prizes.reduce((total, prize) => total + prize.weight, 0);
-            let randomWeight = Math.random() * totalWeight;
-
-            let selectedPrize = null;
-            for (let i = 0; i < this.prizes.length; i++) {
-                if (randomWeight < this.prizes[i].weight) {
-                    selectedPrize = this.prizes[i];
-                    this.drawnPrize = selectedPrize;
-                    // this.prizes.splice(i, 1);
-                    break;
-                } else {
-                    randomWeight -= this.prizes[i].weight;
-                }
-            }
+            await axios.post('http://localhost:3000/get-prize-item', payload).then(rs => {
+                this.prizeItems = rs.data.prizeItems;
+            });
+        },
+        async getPrizeItemPool() {
+            await axios.get('http://localhost:3000/get-prize-item-pool').then(rs => {
+                this.prizeItemPools = rs.data.prizeItemPool;
+            });
+        },
+        async drawPrize(poolName) {
+            console.log(poolName, this.walletAddress);
+            // 給後端 walletAddress
+            // const payload = {
+            //     walletAddress: this.walletAddress
+            // }
+            // await axios.get('http://localhost:3000/draw-prize-item', payload).then(rs => {
+            //     this.prizeItemPools = rs.data.prizeItemPool;
+            // });
         }
     }
 };
@@ -58,22 +91,6 @@ export default {
 <style scoped>
 .prize-item-pool {
     text-align: center;
-}
-
-.prize-list {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
-}
-
-.prize-item {
-    background-color: #f4f4f9;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 10px 20px;
-    margin: 10px;
-    font-size: 16px;
 }
 
 .draw-button {
@@ -95,5 +112,57 @@ export default {
     margin-top: 20px;
     font-size: 20px;
     font-weight: bold;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    width: 80%;
+    max-width: 500px;
+    text-align: center;
+    position: relative;
+}
+
+.modal-content h2 {
+    margin-bottom: 20px;
+}
+
+.modal-content ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.modal-content li {
+    margin: 10px 0;
+}
+
+.close-button {
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+.close-button:hover {
+    background: #e53935;
 }
 </style>
