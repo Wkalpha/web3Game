@@ -27,7 +27,7 @@
       <button v-if="targetTime && !timing" @click="startTiming">攻擊</button>
       <button v-if="timing" @click="stopTiming">停止</button>
       <p v-if="timing">計時中...</p>
-      <p v-if="!timing">您的秒數:{{ elapsedTime }}</p>
+      <p v-if="elapsedTime">您的秒數:{{ elapsedTime }}</p>
       <p v-if="!timing && currentRoundScore !== null">本回合得分：{{ currentRoundScore }}</p>
       <p>總分：{{ totalScore }}</p>
     </div>
@@ -49,7 +49,7 @@ import UserInventory from './UserInventory.vue';
 export default {
   name: 'TimeSniper',
   props: {
-    userBalance: {
+    userTimeCoin: {
       type: Number,
       required: true,
     },
@@ -89,7 +89,7 @@ export default {
       return (
         Number.isInteger(this.betAmount) &&
         this.betAmount >= 100 &&
-        this.betAmount <= this.userBalance &&
+        this.betAmount <= this.userTimeCoin &&
         !!this.difficulty &&
         this.leftOfPlay > 0
       );
@@ -137,7 +137,7 @@ export default {
       }
     },
     async startGame() {
-      if (this.betAmount <= 0 || this.betAmount > this.userBalance) {
+      if (this.betAmount <= 0 || this.betAmount > this.userTimeCoin) {
         this.betAmountError = '下注金額必須大於0且不能超過餘額';
         return;
       }

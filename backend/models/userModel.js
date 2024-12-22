@@ -87,6 +87,11 @@ const deductPlayTimes = async (walletAddress) => {
     await pool.execute(sql, [walletAddress]);
 }
 
+/**
+ * 查詢或新增玩家
+ * @param {*} walletAddress 
+ * @returns 
+ */
 const findOrAdd = async (walletAddress) => {
     const [result] = await pool.execute(`SELECT *, FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
 

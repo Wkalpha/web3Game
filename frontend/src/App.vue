@@ -48,13 +48,13 @@
           <button @click="openETHToTimeCoinInputBox">兌換 Time Coin</button>
           <button @click="openTimeCoinToETHInputBox">兌換 ETH</button>
           <button @click="openTimeCoinToPlayTimesInputBox">購買遊玩次數</button>
-          <PrizeItemPool :wallet-address="walletAddress"/>
+          <PrizeItemPool :wallet-address="walletAddress" :user-time-coin="userInfo.timeCoin"/>
         </div>
       </div>
 
       <!-- 下方：遊戲區域 -->
       <div class="game-section">
-        <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-balance="userInfo.timeCoin"
+        <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-time-coin="userInfo.timeCoin"
           @game-result="handleGameResult" @game-start="handleGameStart" :wallet-address="walletAddress" />
       </div>
 
