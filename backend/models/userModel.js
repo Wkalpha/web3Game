@@ -108,6 +108,7 @@ const findOrAdd = async (walletAddress) => {
         const userInfo = result[0];
         const rs = {
             isNewUser: false,
+            userId: userInfo.Id,
             walletAddress: userInfo.WalletAddress,
             leftOfPlay: userInfo.LeftOfPlay,
             timeCoin: userInfo.AdjustedTimeCoin,

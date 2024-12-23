@@ -541,6 +541,11 @@ export default {
         if (data.event === 'LeaderboardPrizePoolUpdated') {
           this.leaderboardPrizePoolTimeCoin = data.data.leaderboardPrizePoolTimeCoin
         }
+
+        if (data.event === 'TimeCoinChange') {
+          this.userInfo.timeCoin = data.data.userTimeCoin;
+        }
+        
       };
 
       this.webSocket.onclose = () => {

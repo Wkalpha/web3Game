@@ -8,6 +8,8 @@ const createUserInventoryTable = async () => {
         ItemId INT NOT NULL,
         Quantity INT DEFAULT 1,
         AcquiredTime DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UpdatedAt DATETIME DEFAULT NULL,
+        UNIQUE (UserId, ItemId), -- 添加複合唯一約束
         FOREIGN KEY (ItemId) REFERENCES PrizeItem(ItemId) ON DELETE CASCADE
       );
   `;

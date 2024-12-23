@@ -13,16 +13,25 @@
         <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
             <div class="modal-content">
                 <h2>{{ selectedPoolName }}</h2>
+                <h2>抽一次 {{ prizeItemPoolEntryFee }} Time Coin</h2>
+                <h3>已累計 {{ userDrawCounter }} 抽</h3>
                 <button @click="drawPrize(selectedPoolName)" class="draw-button"
                     :class="{ 'disabled-button': userTimeCoin < prizeItemPoolEntryFee }"
                     :disabled="userTimeCoin < prizeItemPoolEntryFee">
                     開始抽獎
                 </button>
+                <button @click="tendrawPrize(selectedPoolName)" class="draw-button"
+                    :class="{ 'disabled-button': userTimeCoin < prizeItemPoolEntryFee * 10 }"
+                    :disabled="userTimeCoin < prizeItemPoolEntryFee * 10">
+                    10 連抽
+                </button>
                 <ul>
                     <li v-for="(item, index) in prizeItems" :key="index">
-                        <strong>{{ item.ItemName }}</strong> - 數量: {{ item.ItemValue }} - 機率: {{ item.DropRate }}
+                        <strong>{{ item.ItemName }}</strong> - 數量: {{ item.ItemValue }} - 機率: {{ item.DropRatePercent }}
                     </li>
                 </ul>
+                <!-- 新增的說明按鈕 -->
+                <button @click="showPrizeDescription" class="info-button">說明</button>
                 <button @click="closeModal" class="close-button">關閉</button>
             </div>
         </div>
@@ -51,11 +60,14 @@ export default {
             prizeItems: [],
             showModal: false, // 控制 Modal 顯示
             selectedPoolName: '', // 選中的獎池名稱
-            prizeItemPoolEntryFee: null
+            userDrawCounter: null, // 玩家累計對應獎池的抽獎次數
+            prizeItemPoolEntryFee: null, // 獎池抽獎費
+            guaranteeDraw: null, // 保底次數
+            bigPrize: null, // 大獎
         };
     },
     mounted() {
-        this.getPrizeItemPool(); // 調用方法
+        this.getPrizeItemPool();
     },
     methods: {
         // 打開 Modal 並加載對應獎品列表
@@ -65,6 +77,18 @@ export default {
             this.showModal = true;
             await this.getPrizeItem(poolName); // 加載獎品列表
         },
+        // 顯示說明
+        showPrizeDescription() {
+            Swal.fire({
+                title: '說明',
+                html: `
+                <p>1. 抽一次會消耗對應的 Time Coin。</p>
+                <p>2. 累計 ${this.guaranteeDraw} 抽必得 ${this.bigPrize.ItemName}。</p>
+                `,
+                icon: 'info',
+                confirmButtonText: '了解了',
+            });
+        },
         // 關閉 Modal
         closeModal() {
             this.showModal = false;
@@ -72,10 +96,14 @@ export default {
         async getPrizeItem(poolName) {
             //開啟相對應獎池
             const payload = {
-                poolName: poolName
+                poolName: poolName,
+                walletAddress: this.walletAddress
             }
             await axios.post('http://localhost:3000/get-prize-item', payload).then(rs => {
                 this.prizeItems = rs.data.prizeItems;
+                this.bigPrize = rs.data.bigPrize;
+                this.guaranteeDraw = rs.data.guaranteeDraw;
+                this.userDrawCounter = rs.data.userDrawCounter;
             });
         },
         async getPrizeItemPool() {
@@ -84,7 +112,6 @@ export default {
             });
         },
         async drawPrize(poolName) {
-            console.log(poolName, this.walletAddress);
             try {
                 const payload = {
                     poolName,
@@ -111,6 +138,7 @@ export default {
                         // 3. 發送請求，模擬等待後端返回
                         const response = await axios.post('http://localhost:3000/draw-prize', payload);
                         const finalPrize = response.data.prize;
+                        this.userDrawCounter = response.data.userDrawCounter;
 
                         // 4. 停止輪詢動畫
                         clearInterval(interval);
@@ -118,7 +146,7 @@ export default {
                         // 5. 更新 SweetAlert 顯示抽中的獎品
                         Swal.fire({
                             title: '恭喜！',
-                            html: `<h2>抽中獎品：${finalPrize.ItemName}</h2><p>價值：${finalPrize.ItemValue}</p>`,
+                            html: `<h2>抽中獎品：${finalPrize.ItemName}</h2><p>數量：${finalPrize.ItemValue}</p>`,
                             icon: 'success',
                             confirmButtonText: '確定',
                         });
@@ -135,15 +163,65 @@ export default {
                     confirmButtonText: '確定',
                 });
             }
+        },
+        async tendrawPrize(poolName) {
+            console.log(poolName, this.walletAddress);
+            try {
+                const payload = {
+                    poolName,
+                    walletAddress: this.walletAddress
+                };
 
+                // 1. 開始輪詢動畫
+                const interval = setInterval(() => {
+                    const randomIndex = Math.floor(Math.random() * this.prizeItems.length);
+                    Swal.update({
+                        html: `<h2>正在抽獎...</h2><p>獎品：${this.prizeItems[randomIndex].ItemName}</p>`,
+                    });
+                }, 100);
 
-            // 給後端 walletAddress
-            // const payload = {
-            //     walletAddress: this.walletAddress
-            // }
-            // await axios.get('http://localhost:3000/draw-prize-item', payload).then(rs => {
-            //     this.prizeItemPools = rs.data.prizeItemPool;
-            // });
+                // 2. 顯示 SweetAlert 的 loading 狀態
+                Swal.fire({
+                    title: '抽獎中',
+                    html: `<h2>正在抽獎...</h2>`,
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: async () => {
+                        Swal.showLoading();
+
+                        // 3. 發送請求，模擬等待後端返回
+                        const response = await axios.post('http://localhost:3000/ten-draw-prize', payload);
+                        const finalPrize = response.data.prizes;
+                        this.userDrawCounter = response.data.userDrawCounter;
+
+                        // 4. 停止輪詢動畫
+                        clearInterval(interval);
+
+                        // 5. 顯示 10 連抽結果
+                        let resultHtml = '<h2>抽獎結果</h2>';
+                        finalPrize.forEach((prize) => {
+                            resultHtml += `<p>${prize.ItemName} x ${prize.ItemValue}</p>`;
+                        });
+
+                        Swal.fire({
+                            title: '恭喜！',
+                            html: resultHtml,
+                            icon: 'success',
+                            confirmButtonText: '確定',
+                        });
+                    },
+                });
+            } catch (error) {
+                console.error('抽獎失敗:', error);
+
+                // 顯示錯誤提示
+                Swal.fire({
+                    title: '抽獎失敗',
+                    text: '請稍後再試。',
+                    icon: 'error',
+                    confirmButtonText: '確定',
+                });
+            }
         }
     }
 };
@@ -171,9 +249,12 @@ export default {
 
 .draw-button:disabled,
 .disabled-button:hover {
-    background-color: gray; /* 禁用時按鈕的背景色 */
-    cursor: not-allowed; /* 禁用時改變游標 */
-    opacity: 0.6; /* 禁用時的透明度 */
+    background-color: gray;
+    /* 禁用時按鈕的背景色 */
+    cursor: not-allowed;
+    /* 禁用時改變游標 */
+    opacity: 0.6;
+    /* 禁用時的透明度 */
 }
 
 .drawn-prize {

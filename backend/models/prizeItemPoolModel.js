@@ -5,7 +5,7 @@ const pool = require('../database/pool');
  */
 const queryPrizeItemPool = async () => {
     const sql = `
-        SELECT PoolName, EntryFee, GuaranteeDraw
+        SELECT PrizeItemPoolId, PoolName, EntryFee, GuaranteeDraw
         FROM PrizeItemPool
     `;
     const [rows] = await pool.execute(sql);

@@ -23,11 +23,11 @@ const createPrizeItemTable = async () => {
       INSERT IGNORE INTO PrizeItem 
       (PoolId, ItemName, ItemType, ItemValue, Rarity, DropRate) 
       VALUES 
-      (1, '5 Time Coin', 'Currency', 5, 'Normal', 0.6),
-      (1, '10 Time Coin', 'Currency', 10, 'Normal', 0.3),
-      (1, '50 Time Coin', 'Currency', 50, 'Normal', 0.07),
-      (1, '150 Time Coin', 'Currency', 150, 'Normal', 0.015),
-      (1, '200 Time Coin', 'Currency', 200, 'Normal', 0.01),
+      (1, '5 Time Coin', 'Currency', 1, 'Normal', 0.6),
+      (1, '10 Time Coin', 'Currency', 1, 'Normal', 0.3),
+      (1, '50 Time Coin', 'Currency', 1, 'Normal', 0.07),
+      (1, '150 Time Coin', 'Currency', 1, 'Normal', 0.015),
+      (1, '200 Time Coin', 'Currency', 1, 'Normal', 0.01),
       (1, '抽獎券(B)', 'Item', 1, 'Normal', 0.005),
 
       (2, '2 回合傷害UP10%', 'Item', 1, 'Rare', 0.25),

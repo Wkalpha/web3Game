@@ -5,7 +5,7 @@ const pool = require('../database/pool');
  */
 const queryPrizeItem = async (poolName) => {
     const sql = `
-        SELECT ItemName, ItemValue, CONCAT(ROUND(DropRate * 100, 2), '%') AS DropRate
+        SELECT ItemId, ItemName, ItemType, ItemValue, CONCAT(ROUND(DropRate * 100, 2), '%') AS DropRatePercent, DropRate
         FROM PrizeItem
         WHERE Rarity = ?
     `;
