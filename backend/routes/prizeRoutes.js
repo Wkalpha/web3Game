@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { queryMainPrizePool, queryLeaderboardPrizePool } = require('../controllers/prizePoolController');
+const prizePoolController = require('../controllers/prizePoolController');
 
 // 定義 API 路由
-router.get('/getMainPrizePool', queryMainPrizePool);
-router.get('/getLeaderboardPrizePool', queryLeaderboardPrizePool);
+router.get('/getMainPrizePool', prizePoolController.queryMainPrizePool);
+router.get('/getLeaderboardPrizePool', prizePoolController.queryLeaderboardPrizePool);
 
 module.exports = router;

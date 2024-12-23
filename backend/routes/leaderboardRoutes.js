@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { queryLeaderboard } = require('../controllers/leaderboardContoller');
+const leaderboardContoller = require('../controllers/leaderboardContoller');
 
 // 定義 API 路由
-router.post('/getLeaderboard', queryLeaderboard);
+router.post('/getLeaderboard', leaderboardContoller.queryLeaderboard);
 
 module.exports = router;

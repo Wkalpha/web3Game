@@ -1,11 +1,11 @@
-const { queryPrizeItemPool } = require('../models/prizeItemPoolModel');
+const prizeItemPoolModel = require('../models/prizeItemPoolModel');
 
 /**
  * 取得抽獎池
  */
 const getPrizeItemPool = async (req, res) => {
   try {
-    const prizeItemPool = await queryPrizeItemPool();
+    const prizeItemPool = await prizeItemPoolModel.queryPrizeItemPool();
 
     res.json({
       prizeItemPool

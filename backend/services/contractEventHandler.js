@@ -1,7 +1,7 @@
 const { web3, contract } = require('./web3utlts.js');
 const { pool } = require('../database/pool.js');
 const { updateUserTimeCoin, getTimeCoin, deductTimeCoin } = require('../models/userModel.js');
-const { updateMainPrizePoolAmount } = require('../models/prizePoolModel.js');
+const prizePoolModel = require('../models/prizePoolModel.js');
 const { sendToPlayerMessage } = require('../services/webSocketService');
 
 /**
@@ -21,7 +21,7 @@ function handleTokensPurchased() {
         await updateUserTimeCoin(timeCoin, buyer);
 
         // 更新 PrizePool 的 Amount
-        await updateMainPrizePoolAmount(weiToEth);
+        await prizePoolModel.updateMainPrizePoolAmount(weiToEth);
 
         const userInfoTimeCoin = await getTimeCoin(buyer);
 

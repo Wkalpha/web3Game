@@ -1,9 +1,10 @@
-const { queryPrizeItem } = require('../models/prizeItemModel');
-const { queryPrizeItemPool } = require('../models/prizeItemPoolModel');
+const prizeItemModel = require('../models/prizeItemModel');
+const prizeItemPoolModel = require('../models/prizeItemPoolModel');
 const userModel = require('../models/userModel');
 const userDrawCounterModel = require('../models/userDrawCounterModel');
-const { insertUserInventory } = require('../models/userInventoryModel');
+const userInventoryModel = require('../models/userInventoryModel');
 const webSocketService = require('../services/webSocketService');
+const prizePoolModel = require('../models/prizePoolModel');
 
 
 /**
@@ -12,9 +13,9 @@ const webSocketService = require('../services/webSocketService');
 const getPrizeItem = async (req, res) => {
   const { poolName, walletAddress } = req.body;
   try {
-    const prizeItems = await queryPrizeItem(poolName);
+    const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
 
-    const poolInfo = await queryPrizeItemPool();
+    const poolInfo = await prizeItemPoolModel.queryPrizeItemPool();
     const filtered = poolInfo.filter(row => row.PoolName === poolName).map(({ PrizeItemPoolId, PoolName, EntryFee, GuaranteeDraw }) => ({
       PrizeItemPoolId,
       PoolName,
@@ -47,7 +48,7 @@ const drawPrize = async (req, res) => {
   const { poolName, walletAddress } = req.body;
   try {
     // 1.根據 poolName 去 PrizeItemPool 取得抽獎的費用(如20)
-    const poolInfo = await queryPrizeItemPool();
+    const poolInfo = await prizeItemPoolModel.queryPrizeItemPool();
     const filtered = poolInfo.filter(row => row.PoolName === poolName).map(({ PrizeItemPoolId, PoolName, EntryFee, GuaranteeDraw }) => ({
       PrizeItemPoolId,
       PoolName,
@@ -68,11 +69,11 @@ const drawPrize = async (req, res) => {
 
         // 如果達到保底次數，直接送出最大獎
         if (userDrawCounter + 1 >= guaranteeDraw) {
-          const prizeItems = await queryPrizeItem(poolName);
+          const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
           const maxPrize = prizeItems.reduce((prev, current) => (prev.ItemValue > current.ItemValue ? prev : current));
 
           // 送出最大獎
-          await insertUserInventory(userInfo.userId, maxPrize.ItemId, maxPrize.ItemValue);
+          await userInventoryModel.insertUserInventory(userInfo.userId, maxPrize.ItemId, maxPrize.ItemValue);
 
           // 扣除 Time Coin
           await userModel.deductTimeCoin(walletAddress, filtered[0].EntryFee);
@@ -103,7 +104,7 @@ const drawPrize = async (req, res) => {
         }
 
         // 5.正常抽獎邏輯
-        const prizeItems = await queryPrizeItem(poolName);
+        const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
         const totalRate = prizeItems.reduce((acc, item) => acc + parseFloat(item.DropRate), 0);
 
         const random = Math.random() * totalRate;
@@ -132,7 +133,7 @@ const drawPrize = async (req, res) => {
         }
 
         // 寫入獎品到 UserInventory
-        await insertUserInventory(userInfo.userId, prizeItemId, prizeValue);
+        await userInventoryModel.insertUserInventory(userInfo.userId, prizeItemId, prizeValue);
 
         // 扣除 Time Coin
         await userModel.deductTimeCoin(walletAddress, filtered[0].EntryFee);
@@ -152,6 +153,8 @@ const drawPrize = async (req, res) => {
         await userDrawCounterModel.incrementDrawCounter(userInfo.userId, filtered[0].PrizeItemPoolId);
 
         userDrawCounter = await userDrawCounterModel.getDrawCounter(userInfo.userId, filtered[0].PrizeItemPoolId);
+
+        await prizePoolModel.updateMainPrizePoolAmountAfterDrawPrize(filtered[0].EntryFee);
 
         // 延遲 2.5 秒後回傳獎品
         setTimeout(() => {
@@ -188,7 +191,7 @@ const tenDrawPrize = async (req, res) => {
 
   try {
     // 1. 獲取抽獎池資訊
-    const poolInfo = await queryPrizeItemPool();
+    const poolInfo = await prizeItemPoolModel.queryPrizeItemPool();
     const pool = poolInfo.find((row) => row.PoolName === poolName);
 
     if (!pool) {
@@ -207,7 +210,7 @@ const tenDrawPrize = async (req, res) => {
     }
 
     // 4. 從獎池中獲取所有獎品資訊
-    const prizeItems = await queryPrizeItem(poolName);
+    const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
 
     // 計算獎池總權重
     const totalRate = prizeItems.reduce((acc, item) => acc + parseFloat(item.DropRate), 0);
@@ -265,7 +268,7 @@ const tenDrawPrize = async (req, res) => {
 
     // 7. 將獎品批量插入到 UserInventory
     for (const prize of results) {
-      await insertUserInventory(userInfo.userId, prize.ItemId, prize.ItemValue);
+      await userInventoryModel.insertUserInventory(userInfo.userId, prize.ItemId, prize.ItemValue);
     }
 
     // 8.通知玩家 Time Coin 變化
@@ -279,6 +282,8 @@ const tenDrawPrize = async (req, res) => {
     webSocketService.sendToPlayerMessage(walletAddress, message);
 
     userDrawCounter = await userDrawCounterModel.getDrawCounter(userInfo.userId, PrizeItemPoolId);
+
+    await prizePoolModel.updateMainPrizePoolAmountAfterDrawPrize(totalFee);
 
     // 9. 返回抽獎結果
     // 延遲 3 秒後回傳獎品

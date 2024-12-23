@@ -3,7 +3,7 @@ dotenv.config();
 const express = require('express');
 const router = express.Router();
 const { verifyMessage } = require('ethers');
-const { updateUserBalanceWhenBuyPlaytimes, updateUserBalanceWhenBuyETH, leaderboardBet, findOrAddUser, withdrawContract } = require('../controllers/userController');
+const userController = require('../controllers/userController');
 
 // 中間件:登入驗證簽名
 const verifyWalletSignature = (req, res, next) => {
@@ -24,10 +24,10 @@ const verifyWalletSignature = (req, res, next) => {
 };
 
 // 定義 API 路由
-router.post('/update-user-balance-when-buy-playtimes', updateUserBalanceWhenBuyPlaytimes);
-router.post('/update-user-balance-when-buy-eth', updateUserBalanceWhenBuyETH);
-router.post('/leaderboard-add-bet', leaderboardBet);
-router.post('/find-or-add', verifyWalletSignature, findOrAddUser);
-router.post('/update-prize-pool-after-withdraw', withdrawContract);
+router.post('/update-user-balance-when-buy-playtimes', userController.updateUserBalanceWhenBuyPlaytimes);
+router.post('/update-user-balance-when-buy-eth', userController.updateUserBalanceWhenBuyETH);
+router.post('/leaderboard-add-bet', userController.leaderboardBet);
+router.post('/find-or-add', verifyWalletSignature, userController.findOrAddUser);
+router.post('/update-prize-pool-after-withdraw', userController.withdrawContract);
 
 module.exports = router;

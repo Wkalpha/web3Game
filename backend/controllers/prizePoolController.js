@@ -1,11 +1,11 @@
-const { getMainPrizePoolAmount, getLeaderboardPrizePoolAmount } = require('../models/prizePoolModel');
+const prizePoolModel = require('../models/prizePoolModel');
 
 /**
  * 查詢主獎金池
  */
 const queryMainPrizePool = async (req, res) => {
   try {
-    const amount = await getMainPrizePoolAmount();
+    const amount = await prizePoolModel.getMainPrizePoolAmount();
 
     res.json({
       amount
@@ -20,7 +20,7 @@ const queryMainPrizePool = async (req, res) => {
  */
 const queryLeaderboardPrizePool = async (req, res) => {
   try {
-    const amount = await getLeaderboardPrizePoolAmount();
+    const amount = await prizePoolModel.getLeaderboardPrizePoolAmount();
 
     res.json({
       amount

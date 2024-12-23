@@ -1,8 +1,8 @@
-const { updateMainPrizePoolAmountAfterGameOver } = require('../models/prizePoolModel');
-const { upsertLeaderboardAfterGameOver, getLeaderboard } = require('../models/leaderboardModel');
-const { deductPlayTimes, updateUserTimeCoinAfterGameOver, getTimeCoin, deductTimeCoin, getTimeCoinPlayTimes } = require('../models/userModel');
-const { insertWhenGetTargetTime, updateWhenStartTimer, updateWhenEndTimer, queryByGameIdAndRound, sumScoreByGameId } = require('../models/gameLogModel');
-const { insertWhenGameStart, updateWhenGameOver, queryGameInfoByGameId } = require('../models/gameInfoModel');
+const prizePoolModel = require('../models/prizePoolModel');
+const leaderboardModel = require('../models/leaderboardModel');
+const userModel = require('../models/userModel');
+const gameLogModel = require('../models/gameLogModel');
+const gameInfoModel = require('../models/gameInfoModel');
 const { v4: uuidv4 } = require('uuid');
 
 /**
@@ -13,16 +13,16 @@ const gameStart = async (req, res) => {
     const gameId = uuidv4();
     try {
         // 1. 更新玩家的餘額
-        await deductTimeCoin(walletAddress, amountInput);
+        await userModel.deductTimeCoin(walletAddress, amountInput);
 
         // 2. 扣除玩家遊戲次數
-        await deductPlayTimes(walletAddress);
+        await userModel.deductPlayTimes(walletAddress);
 
         // 3. 重查玩家餘額與次數回傳
-        const userInfo = await getTimeCoinPlayTimes(walletAddress);
+        const userInfo = await userModel.getTimeCoinPlayTimes(walletAddress);
 
         // 4. 相關資訊寫入DB
-        await insertWhenGameStart(walletAddress, gameId, level, odds, amountInput);
+        await gameInfoModel.insertWhenGameStart(walletAddress, gameId, level, odds, amountInput);
 
         res.json({
             gameId,
@@ -43,7 +43,7 @@ const getTargetTime = async (req, res) => {
 
     const targetTime = (Math.random() * 9 + 1).toFixed(2); // 1 到 10 秒的目標時間
 
-    await insertWhenGetTargetTime(walletAddress, gameId, targetTime, round);
+    await gameLogModel.insertWhenGetTargetTime(walletAddress, gameId, targetTime, round);
 
     res.json({ targetTime });
 };
@@ -57,7 +57,7 @@ const startTimer = async (req, res) => {
 
     try {
         // 儲存開始時間到數據庫
-        await updateWhenStartTimer(gameId, startTime, round);
+        await gameLogModel.updateWhenStartTimer(gameId, startTime, round);
         res.json({ success: true });
     } catch (err) {
         console.error('無法開始計時：', err);
@@ -73,7 +73,7 @@ const endTimer = async (req, res) => {
     const endTime = Date.now();
 
     try {
-        const result = await queryByGameIdAndRound(gameId, round);
+        const result = await gameLogModel.queryByGameIdAndRound(gameId, round);
 
         const elapsedTime = (((endTime - result.StartTime) % 60000) / 1000).toFixed(2); // 經過秒數
 
@@ -82,7 +82,7 @@ const endTimer = async (req, res) => {
         // 計算分差
         const scores = Math.max(0, Math.floor((1 - difference / 10) * 10));
 
-        const roundData = await updateWhenEndTimer(gameId, endTime, round, elapsedTime, scores);
+        const roundData = await gameLogModel.updateWhenEndTimer(gameId, endTime, round, elapsedTime, scores);
 
         if (roundData.affectedRows === 0) {
             return res.status(404).json({ success: false, message: '更新失敗' });
@@ -103,25 +103,25 @@ const gameOver = async (req, res) => {
 
     try {
         // 拿 gameId 去 GameLog 把 Score 加總後判斷勝負，門檻值要根據不同的難度有所高低
-        const totalScore = await sumScoreByGameId(gameId);
+        const totalScore = await gameLogModel.sumScoreByGameId(gameId);
 
         // GameInfo 找資訊
-        const gameInfo = await queryGameInfoByGameId(gameId);
+        const gameInfo = await gameInfoModel.queryGameInfoByGameId(gameId);
 
         // 判斷輸贏
         const gameResult = determineGameResult(totalScore, gameInfo.Level);
-        
+
         const userTimeCoinOdds = gameResult.winOrLose === 'win' ? 1 + parseFloat(gameInfo.Odds) : 0;
         const prizePoolOdds = gameResult.winOrLose === 'lose' ? 1 : -parseFloat(gameInfo.Odds);
 
         // 1. 更新玩家的餘額
-        await updateUserTimeCoinAfterGameOver(gameInfo.WalletAddress, gameInfo.BetAmount, userTimeCoinOdds);
+        await userModel.updateUserTimeCoinAfterGameOver(gameInfo.WalletAddress, gameInfo.BetAmount, userTimeCoinOdds);
 
         // 2. 獲取玩家的餘額
-        const userTimeCoin = await getTimeCoin(gameInfo.WalletAddress);
+        const userTimeCoin = await userModel.getTimeCoin(gameInfo.WalletAddress);
 
         // 3. 更新主獎金池金額
-        await updateMainPrizePoolAmountAfterGameOver(gameInfo.BetAmount, prizePoolOdds);
+        await prizePoolModel.updateMainPrizePoolAmountAfterGameOver(gameInfo.BetAmount, prizePoolOdds);
 
         // 4. 插入或更新排行榜數據
         const yearWeek = calculateYearWeek() // 例如：202450
@@ -130,14 +130,14 @@ const gameOver = async (req, res) => {
         const loseIncrement = gameResult.winOrLose === 'lose' ? 1 : 0;
         const scoreAdjustment = gameResult.winOrLose === 'win' ? gameResult.scoreAdjustment : -gameResult.scoreAdjustment;
 
-        await upsertLeaderboardAfterGameOver(gameInfo.WalletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
+        await leaderboardModel.upsertLeaderboardAfterGameOver(gameInfo.WalletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
 
         // 5. 獲取排行榜數據
-        const leaderboard = await getLeaderboard(yearWeek);
+        const leaderboard = await leaderboardModel.getLeaderboard(yearWeek);
 
         // 6. 更新 GameInfo
         const profit = gameInfo.BetAmount * userTimeCoinOdds;
-        await updateWhenGameOver(gameId, gameResult.winOrLose, profit);
+        await gameInfoModel.updateWhenGameOver(gameId, gameResult.winOrLose, profit);
 
         res.json({
             userTimeCoin,

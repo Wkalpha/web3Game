@@ -1,7 +1,7 @@
-const { buyPlayTimes, getTimeCoinPlayTimes, deductTimeCoin, formatTimeCoin, findOrAdd, getTimeCoin } = require('../models/userModel');
-const { updateMainPrizePoolAmount, updateLeaderboardPrizePoolAmount, updateMainPrizePoolAmountAfterWithdraw } = require('../models/prizePoolModel');
-const { updateLeaderboardAmount, getLeaderboard } = require('../models/leaderboardModel');
-const { upsertLeaderboardBetRecord } = require('../models/leaderboardBetRecordModel');
+const userModel = require('../models/userModel');
+const prizePoolModel = require('../models/prizePoolModel');
+const leaderboardModel = require('../models/leaderboardModel');
+const leaderboardBetRecordModel = require('../models/leaderboardBetRecordModel');
 const { transferEthToSpecificAddress, withdraw } = require('../services/web3utlts');
 
 /**
@@ -13,13 +13,13 @@ const updateUserBalanceWhenBuyPlaytimes = async (req, res) => {
 
   try {
     // 1.更新獎金池的金額
-    await updateMainPrizePoolAmount(balanceChangeToETH); // 使用 prizePoolModel 處理
+    await prizePoolModel.updateMainPrizePoolAmount(balanceChangeToETH);
 
     // 2.更新使用者的 TimeCoin 和剩餘遊戲次數
-    await buyPlayTimes(walletAddress, balanceChange, playTimes); // 使用 userModel 處理
+    await userModel.buyPlayTimes(walletAddress, balanceChange, playTimes);
 
     // 3.獲取最新的使用者資訊
-    const userInfo = await getTimeCoinPlayTimes(walletAddress);
+    const userInfo = await userModel.getTimeCoinPlayTimes(walletAddress);
     res.json({
       leftOfPlay: userInfo?.LeftOfPlay,
       timeCoin: userInfo?.AdjustedTimeCoin
@@ -37,7 +37,7 @@ const updateUserBalanceWhenBuyETH = async (req, res) => {
 
   try {
     // 檢查 Time Coin 是否足夠
-    const timeCoin = await getTimeCoin(walletAddress);
+    const timeCoin = await userModel.getTimeCoin(walletAddress);
     if (timeCoin >= balanceChange) {
       transferEthToSpecificAddress(walletAddress, balanceChange);
     } else {
@@ -55,12 +55,12 @@ const leaderboardBet = async (req, res) => {
   const { fromWalletAddress, toWalletAddress, betAmount, yearWeek } = req.body
 
   try {
-    await updateLeaderboardAmount(betAmount, toWalletAddress);
-    await upsertLeaderboardBetRecord(fromWalletAddress, toWalletAddress, betAmount);
-    await updateLeaderboardPrizePoolAmount(betAmount);
-    await deductTimeCoin(fromWalletAddress, betAmount);
-    const leaderboardResults = await getLeaderboard(yearWeek);
-    const userInfo = await formatTimeCoin(fromWalletAddress);
+    await leaderboardModel.updateLeaderboardAmount(betAmount, toWalletAddress);
+    await leaderboardBetRecordModel.upsertLeaderboardBetRecord(fromWalletAddress, toWalletAddress, betAmount);
+    await prizePoolModel.updateLeaderboardPrizePoolAmount(betAmount);
+    await userModel.deductTimeCoin(fromWalletAddress, betAmount);
+    const leaderboardResults = await leaderboardModel.getLeaderboard(yearWeek);
+    const userInfo = await userModel.formatTimeCoin(fromWalletAddress);
 
     res.json({
       leaderboard: leaderboardResults,
@@ -79,7 +79,7 @@ const findOrAddUser = async (req, res) => {
   const { walletAddress } = req.body
 
   try {
-    const result = await findOrAdd(walletAddress);
+    const result = await userModel.findOrAdd(walletAddress);
     res.json({
       isNewUser: result.isNewUser,
       walletAddress: result.walletAddress,
@@ -96,7 +96,7 @@ const findOrAddUser = async (req, res) => {
  * 提取合約所有 ETH
  */
 const withdrawContract = async (req, res) => {
-  await updateMainPrizePoolAmountAfterWithdraw();
+  await prizePoolModel.updateMainPrizePoolAmountAfterWithdraw();
   await withdraw();
 };
 

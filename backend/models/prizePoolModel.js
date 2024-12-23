@@ -24,6 +24,28 @@ const updateMainPrizePoolAmount = async (amount) => {
 };
 
 /**
+ * 抽獎後更新主獎金池的金額
+ * @param {number} timeCoin
+ */
+const updateMainPrizePoolAmountAfterDrawPrize = async (timeCoin) => {
+    const sql = `UPDATE PrizePool SET Amount = Amount + (?/10000) WHERE ID = 1`;
+    const [result] = await pool.execute(sql, [timeCoin]);
+
+    // 如果有變更到 PrizePool 表的金額，則發送 WebSocket 通知
+    if (result.affectedRows > 0) {
+        // 獲取最新的 PrizePool 金額
+        const amount = await getMainPrizePoolAmount();
+        const message = {
+            event: 'PrizePoolUpdated',
+            data: {
+                prizePoolTimeCoin: amount
+            }
+        };
+        sendWebSocketMessage(message); // 發送 WebSocket 消息
+    }
+};
+
+/**
  * 遊戲結束後更新主獎金池的金額
  * @param {number} amount - 需要增加的金額
  */
@@ -120,5 +142,6 @@ module.exports = {
     updateLeaderboardPrizePoolAmount,
     getLeaderboardPrizePoolAmount,
     updateMainPrizePoolAmountAfterGameOver,
-    updateMainPrizePoolAmountAfterWithdraw
+    updateMainPrizePoolAmountAfterWithdraw,
+    updateMainPrizePoolAmountAfterDrawPrize
 };

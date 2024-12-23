@@ -1,4 +1,4 @@
-const { getLeaderboard } = require('../models/leaderboardModel');
+const leaderboardModel = require('../models/leaderboardModel');
 
 /**
  * 查看排行榜
@@ -7,7 +7,7 @@ const queryLeaderboard = async (req, res) => {
   const { yearWeek } = req.body
 
   try {
-    const leaderboardResults = await getLeaderboard(yearWeek);
+    const leaderboardResults = await leaderboardModel.getLeaderboard(yearWeek);
 
     res.json({
       leaderboard: leaderboardResults
