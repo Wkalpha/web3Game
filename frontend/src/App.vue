@@ -1,10 +1,12 @@
 <template>
+  
   <div id="app">
     <h1>Time Battle DApp</h1>
 
     <div v-if="owner && wallet_connected && login">
       您好，創始者
       <button @click="withDraw">提取合約</button>
+      <button @click="onBigPrizeDraw">公告測試</button>
     </div>
 
     <p v-if="wallet_connected && login">合約地址: {{ contractAddress }}</p>
@@ -41,14 +43,13 @@
           </div>
         </div>
 
-
         <!-- 右側：功能操作區 -->
         <div class="action-section">
           <p>您持有 {{ userInfo.timeCoin }} Time Coin</p>
           <button @click="openETHToTimeCoinInputBox">兌換 Time Coin</button>
           <button @click="openTimeCoinToETHInputBox">兌換 ETH</button>
           <button @click="openTimeCoinToPlayTimesInputBox">購買遊玩次數</button>
-          <PrizeItemPool :wallet-address="walletAddress" :user-time-coin="userInfo.timeCoin"/>
+          <PrizeItemPool :wallet-address="walletAddress" :user-time-coin="userInfo.timeCoin" />
         </div>
       </div>
 
@@ -96,6 +97,7 @@ export default {
       prizePool: null,
       login: false,
       userInfo: {
+        userId: null,
         timeCoin: 0,
         leftOfPlay: 0, // 剩餘可遊玩次數
       },
@@ -545,7 +547,7 @@ export default {
         if (data.event === 'TimeCoinChange') {
           this.userInfo.timeCoin = data.data.userTimeCoin;
         }
-        
+
       };
 
       this.webSocket.onclose = () => {

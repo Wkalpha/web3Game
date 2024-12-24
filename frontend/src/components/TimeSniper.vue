@@ -1,6 +1,6 @@
 <template>
   <div class="game-container">
-    <UserInventory />
+    <UserInventory :wallet-address="walletAddress" @get-inventory="handleInventory" />
     <h2>遊戲</h2>
     <h2>剩餘可遊玩次數{{ leftOfPlay }}</h2>
     <div v-if="!gameStarted && !gameFinished">
@@ -12,7 +12,11 @@
         <p>選擇的難度：{{ difficulty }}(賠率{{ odds }})</p>
         <p>投入 Time Coin</p>
         <input type="number" v-model.number="betAmount" placeholder="至少 100 Time Coin" />
-        <button @click="startGame" :disabled="!canStartGame">開始對戰</button>
+        <div>
+          <input type="checkbox" v-model="useNoItem" id="useNoItem" />
+          <label for="useNoItem">不使用道具</label>
+        </div>
+        <button @click="onStartGame" :disabled="!canStartGame">開始對戰</button>
         <p v-if="betAmountError" class="error">{{ betAmountError }}</p>
       </div>
     </div>
@@ -38,6 +42,23 @@
       <p>{{ resultMessage }}</p>
       <p>{{ balanceChange }}</p>
       <button @click="resetGame">重新開始</button>
+    </div>
+
+    <!-- 道具選擇 Modal -->
+    <div v-if="isModalVisible" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>選擇一個道具使用</h3>
+          <button @click="closeModal">X</button>
+        </div>
+        <div class="modal-body">
+          <ul>
+            <li v-for="item in inventory" :key="item.InventoryId">
+              <button @click="selectItem(item)">{{ item.ItemName }}</button>
+            </li>
+          </ul>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -81,7 +102,10 @@ export default {
       currentRoundScore: null,
       countdownTime: 180, // 3分鐘倒數時間，單位為秒
       countdownInterval: null,
-      gameFinished: false
+      gameFinished: false,
+      inventory: null,
+      isModalVisible: false, // 控制道具選擇 Modal 顯示
+      useNoItem: false
     };
   },
   computed: {
@@ -136,13 +160,35 @@ export default {
           break;
       }
     },
-    async startGame() {
+    handleInventory(inventory) {
+      this.inventory = inventory.filter(item => item.ItemType === 'Item');
+    },
+    async onStartGame() {
       if (this.betAmount <= 0 || this.betAmount > this.userTimeCoin) {
         this.betAmountError = '下注金額必須大於0且不能超過餘額';
         return;
       }
       this.betAmountError = '';
-      this.gameStarted = true;
+
+      // 如果未勾選 "不使用道具"，則彈出選擇道具的 Modal
+      if (!this.useNoItem) {
+        this.isModalVisible = true;
+        return;
+      }
+
+      // 如果勾選了 "不使用道具"，直接開始遊戲
+      this.startGame();
+    },
+    selectItem(item) {
+      this.selectedItem = item; // 設定選中的道具
+      this.isModalVisible = false; // 關閉 Modal
+      this.startGame(); // 開始遊戲
+    },
+    closeModal() {
+      this.isModalVisible = false; // 關閉 Modal
+    },
+    async startGame() {
+      // this.gameStarted = true;
 
       switch (this.difficulty) {
         case 'Easy':
@@ -162,15 +208,18 @@ export default {
         walletAddress: this.walletAddress,
         level: this.difficulty,
         odds: this.odds,
-        amountInput: this.betAmount
+        amountInput: this.betAmount,
+        itemId: this.selectedItem ? this.selectedItem.ItemId : null, // 傳遞選中的道具
       }
 
-      await axios.post('http://localhost:3000/update-balance-when-game-start', payload).then(rs => {
-        this.startCountdown();
-        this.gameId = rs.data.gameId;
-        // 通知父組件
-        this.$emit('game-start', { leftOfPlay: rs.data.leftOfPlay, timeCoin: rs.data.timeCoin });
-      })
+      console.log(payload)
+
+      // await axios.post('http://localhost:3000/update-balance-when-game-start', payload).then(rs => {
+      //   this.startCountdown();
+      //   this.gameId = rs.data.gameId;
+      //   // 通知父組件
+      //   this.$emit('game-start', { leftOfPlay: rs.data.leftOfPlay, timeCoin: rs.data.timeCoin });
+      // })
 
     },
     async getTargetTime() {
@@ -259,6 +308,47 @@ export default {
   border-radius: 10px;
   width: 300px;
   text-align: center;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 80%;
+  max-height: 80%;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-body {
+  overflow-y: auto;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  margin: 10px 0;
 }
 
 button {

@@ -1,6 +1,7 @@
 <template>
     <div class="prize-item-pool">
         <h1>抽獎</h1>
+        <BigPrizeMarquee />
         <div v-if="prizeItemPools.length === 0">加載中...</div>
         <div v-else>
             <div v-for="(prizeItemPool, index) in prizeItemPools" :key="index">
@@ -41,9 +42,13 @@
 <script>
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import BigPrizeMarquee from './BigPrizeMarquee.vue';
 
 export default {
     name: 'PrizeItemPool',
+    components: {
+        BigPrizeMarquee
+    },
     props: {
         walletAddress: {
             type: String,
@@ -165,7 +170,6 @@ export default {
             }
         },
         async tendrawPrize(poolName) {
-            console.log(poolName, this.walletAddress);
             try {
                 const payload = {
                     poolName,
