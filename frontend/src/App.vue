@@ -6,7 +6,6 @@
     <div v-if="owner && wallet_connected && login">
       您好，創始者
       <button @click="withDraw">提取合約</button>
-      <button @click="onBigPrizeDraw">公告測試</button>
     </div>
 
     <p v-if="wallet_connected && login">合約地址: {{ contractAddress }}</p>

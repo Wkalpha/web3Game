@@ -96,7 +96,10 @@ const findOrAdd = async (walletAddress) => {
     const [result] = await pool.execute(`SELECT *, FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
 
     if (result.length === 0) {
-        await pool.execute(`INSERT INTO UserInfo (WalletAddress, LeftOfPlay, TimeCoin, Creator) VALUES (?, ?, ?, ?)`, [walletAddress, 5, 0, 'System']);
+        await pool.execute(`
+            INSERT INTO UserInfo (WalletAddress, LeftOfPlay, TimeCoin, Creator, BaseAttackPower, RewardMultiplier) 
+            VALUES (?, ?, ?, ?, 1, 1)
+            `, [walletAddress, 5, 0, 'System']);
         const rs = {
             isNewUser: true,
             walletAddress: walletAddress,

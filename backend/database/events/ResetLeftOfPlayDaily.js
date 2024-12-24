@@ -27,8 +27,8 @@ const createResetLeftOfPlayDailyEvent = async () => {
         STARTS CONVERT_TZ(CURRENT_DATE, @@global.time_zone, '+00:00') + INTERVAL '00:00' HOUR_MINUTE 
         DO 
         UPDATE UserInfo 
-        SET LeftOfPlay = 5 
-        WHERE LeftOfPlay <= 5;
+        SET LeftOfPlay = BaseLeftOfPlay  
+        WHERE LeftOfPlay < BaseLeftOfPlay ;
     `;
     await pool.query(createResetLeftOfPlayDailyEventSql);
     console.log('ResetLeftOfPlayDaily 事件已建立');
