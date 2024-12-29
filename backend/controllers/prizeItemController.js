@@ -49,151 +49,12 @@ const drawPrize = async (req, res) => {
   const { poolName, walletAddress } = req.body;
 
   try {
-    // 1.根據 poolName 去 PrizeItemPool 取得抽獎的費用(如20)
-    const poolInfo = await prizeItemPoolModel.queryPrizeItemPool();
-    const filtered = poolInfo.filter(row => row.PoolName === poolName).map(({ PrizeItemPoolId, PoolName, EntryFee, GuaranteeDraw }) => ({
-      PrizeItemPoolId,
-      PoolName,
-      EntryFee,
-      GuaranteeDraw
-    }));
+    const result = await performDraw(poolName, walletAddress, false);
 
-    // 2.根據 walletAddress 去 UserInfo 取得使用者的 Time Coin
-    const userInfo = await userModel.findOrAdd(walletAddress);
-
-    // 3.判斷 Time Coin是否足夠抽獎
-    if (filtered.length > 0) {
-      if (userInfo.timeCoin >= filtered[0].EntryFee) {
-        const guaranteeDraw = filtered[0].GuaranteeDraw;
-
-        // 4.檢查玩家的抽獎次數
-        let userDrawCounter = await userDrawCounterModel.getDrawCounter(userInfo.userId, filtered[0].PrizeItemPoolId);
-
-        // 如果達到保底次數，直接送出最大獎
-        if (userDrawCounter + 1 >= guaranteeDraw) {
-          const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
-          const maxPrize = prizeItems.reduce((prev, current) => (prev.ItemValue > current.ItemValue ? prev : current));
-
-          // 送出最大獎
-          await userInventoryModel.insertUserInventory(userInfo.userId, maxPrize.ItemId, maxPrize.ItemValue);
-
-          // 扣除 Time Coin
-          await userModel.deductTimeCoin(walletAddress, filtered[0].EntryFee);
-          userInfo.timeCoin = await userModel.getTimeCoin(walletAddress);
-
-          // 通知玩家 Time Coin 變化
-          const message = {
-            event: 'TimeCoinChange',
-            data: {
-              walletAddress,
-              userTimeCoin: userInfo.timeCoin
-            }
-          };
-          webSocketService.sendToPlayerMessage(walletAddress, message);
-
-          // 增加抽獎次數
-          await userDrawCounterModel.incrementDrawCounter(userInfo.userId, filtered[0].PrizeItemPoolId);
-
-          // 重置抽獎次數
-          await userDrawCounterModel.deductDrawCounter(userInfo.userId, filtered[0].PrizeItemPoolId, guaranteeDraw);
-
-          // 存抽獎紀錄
-          await userDrawLogModel.insertUserDrawLog(userInfo.userId, filtered[0].PrizeItemPoolId, maxPrize.ItemId, maxPrize.BigPrize);
-
-          userDrawCounter = await userDrawCounterModel.getDrawCounter(userInfo.userId, filtered[0].PrizeItemPoolId);
-
-          // 延遲 2.5 秒後回傳保底獎品
-          return setTimeout(() => {
-            return res.json({
-              prize: {
-                ItemName: maxPrize.ItemName,
-                ItemValue: maxPrize.ItemValue
-              },
-              userDrawCounter
-            });
-          }, 2500);
-        }
-
-        // 5.正常抽獎邏輯
-        const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
-        const totalRate = prizeItems.reduce((acc, item) => acc + parseFloat(item.DropRate), 0);
-
-        const random = Math.random() * totalRate;
-
-        let cumulativeRate = 0;
-        let prizeName = null;
-        let prizeValue = null;
-        let prizeItemId = null;
-        let bigPrize = null;
-
-        for (const item of prizeItems) {
-          cumulativeRate += parseFloat(item.DropRate);
-          if (random <= cumulativeRate + Number.EPSILON) {
-            prizeItemId = item.ItemId;
-            prizeName = item.ItemName;
-            prizeValue = item.ItemValue;
-            bigPrize = item.BigPrize;
-            break;
-          }
-        }
-
-        // 確保總是有值
-        if (prizeName === null || prizeValue === null) {
-          const fallbackPrize = prizeItems[prizeItems.length - 1];
-          prizeItemId = fallbackPrize.ItemId;
-          prizeName = fallbackPrize.ItemName;
-          prizeValue = fallbackPrize.ItemValue;
-          bigPrize = fallbackPrize.BigPrize;
-        }
-
-        // 寫入獎品到 UserInventory
-        await userInventoryModel.insertUserInventory(userInfo.userId, prizeItemId, prizeValue);
-
-        // 扣除 Time Coin
-        await userModel.deductTimeCoin(walletAddress, filtered[0].EntryFee);
-        userInfo.timeCoin = await userModel.getTimeCoin(walletAddress);
-
-        // 通知玩家 Time Coin 變化
-        const message = {
-          event: 'TimeCoinChange',
-          data: {
-            walletAddress,
-            userTimeCoin: userInfo.timeCoin
-          }
-        };
-        webSocketService.sendToPlayerMessage(walletAddress, message);
-
-        // 增加抽獎次數
-        await userDrawCounterModel.incrementDrawCounter(userInfo.userId, filtered[0].PrizeItemPoolId);
-
-        userDrawCounter = await userDrawCounterModel.getDrawCounter(userInfo.userId, filtered[0].PrizeItemPoolId);
-
-        await prizePoolModel.updateMainPrizePoolAmountAfterDrawPrize(filtered[0].EntryFee);
-
-        await userDrawLogModel.insertUserDrawLog(userInfo.userId, filtered[0].PrizeItemPoolId, prizeItemId, bigPrize);
-
-        // 延遲 2.5 秒後回傳獎品
-        setTimeout(() => {
-          return res.json({
-            prize: {
-              ItemName: prizeName,
-              ItemValue: prizeValue
-            },
-            userDrawCounter
-          });
-        }, 2500);
-      } else {
-        return res.json({
-          prize: {
-            ItemName: "無",
-            ItemValue: 0
-          }
-        });
-      }
-    } else {
-      console.log(`No pool found for PoolName: ${poolName}`);
-      return res.status(404).json({ error: '抽獎池不存在' });
-    }
+    // 延遲 2.5 秒後返回
+    setTimeout(() => {
+      res.json(result);
+    }, 2500);
   } catch (error) {
     res.status(500).json({ error: '抽獎失敗', details: error.message });
   }
@@ -322,8 +183,97 @@ const tenDrawPrize = async (req, res) => {
   }
 };
 
+/**
+ * 抽獎邏輯
+ */
+const performDraw = async (poolName, walletAddress, ticket) => {
+  const poolInfo = await prizeItemPoolModel.queryPrizeItemPool();
+  const filtered = poolInfo.filter(row => row.PoolName === poolName).map(({ PrizeItemPoolId, PoolName, EntryFee, GuaranteeDraw }) => ({
+    PrizeItemPoolId,
+    PoolName,
+    EntryFee,
+    GuaranteeDraw
+  }));
+
+  if (filtered.length === 0) {
+    throw new Error(`No pool found for PoolName: ${poolName}`);
+  }
+
+  const entryFee = ticket ? 0 : filtered[0].EntryFee;
+  const guaranteeDraw = filtered[0].GuaranteeDraw;
+  const prizeItemPoolId = filtered[0].PrizeItemPoolId;
+
+  const userInfo = await userModel.findOrAdd(walletAddress);
+
+  if (userInfo.timeCoin < entryFee) {
+    throw new Error('Time Coin不足');
+  }
+
+  let userDrawCounter = await userDrawCounterModel.getDrawCounter(userInfo.userId, prizeItemPoolId);
+
+  if (userDrawCounter + 1 >= guaranteeDraw) {
+    const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
+    const maxPrize = prizeItems.reduce((prev, current) => (prev.ItemValue > current.ItemValue ? prev : current));
+
+    await userInventoryModel.insertUserInventory(userInfo.userId, maxPrize.ItemId, maxPrize.ItemValue);
+    await userDrawCounterModel.incrementDrawCounter(userInfo.userId, prizeItemPoolId);
+    await userDrawCounterModel.deductDrawCounter(userInfo.userId, prizeItemPoolId, guaranteeDraw);
+    await userDrawLogModel.insertUserDrawLog(userInfo.userId, prizeItemPoolId, maxPrize.ItemId, maxPrize.BigPrize);
+
+    return {
+      prize: {
+        ItemName: maxPrize.ItemName,
+        ItemValue: maxPrize.ItemValue
+      },
+      userDrawCounter: 0
+    };
+  }
+
+  const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
+  const totalRate = prizeItems.reduce((acc, item) => acc + parseFloat(item.DropRate), 0);
+
+  const random = Math.random() * totalRate;
+  let cumulativeRate = 0;
+  let prize = null;
+
+  for (const item of prizeItems) {
+    cumulativeRate += parseFloat(item.DropRate);
+    if (random <= cumulativeRate) {
+      prize = item;
+      break;
+    }
+  }
+
+  if (!prize) {
+    prize = prizeItems[prizeItems.length - 1];
+  }
+
+  await userInventoryModel.insertUserInventory(userInfo.userId, prize.ItemId, prize.ItemValue);
+  await userModel.deductTimeCoin(walletAddress, entryFee);
+  userInfo.timeCoin = await userModel.getTimeCoin(walletAddress);
+  const message = {
+    event: 'TimeCoinChange',
+    data: {
+      walletAddress,
+      userTimeCoin: userInfo.timeCoin
+    }
+  };
+  webSocketService.sendToPlayerMessage(walletAddress, message);
+  await userDrawCounterModel.incrementDrawCounter(userInfo.userId, prizeItemPoolId);
+  await userDrawLogModel.insertUserDrawLog(userInfo.userId, prizeItemPoolId, prize.ItemId, prize.BigPrize);
+
+  return {
+    prize: {
+      ItemName: prize.ItemName,
+      ItemValue: prize.ItemValue
+    },
+    userDrawCounter: userDrawCounter + 1
+  };
+};
+
 module.exports = {
   getPrizeItem,
   drawPrize, // 單次抽獎
-  tenDrawPrize // 10連抽
+  tenDrawPrize, // 10連抽
+  performDraw
 };

@@ -9,7 +9,7 @@ const { v4: uuidv4 } = require('uuid');
  * 開始遊戲
  */
 const gameStart = async (req, res) => {
-    const { walletAddress, level, odds, amountInput } = req.body;
+    const { walletAddress, level, odds, amountInput} = req.body;
     const gameId = uuidv4();
     try {
         // 1. 更新玩家的餘額

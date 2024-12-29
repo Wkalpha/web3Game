@@ -1,12 +1,12 @@
 <template>
     <div>
-        <button @click="openModal">道具</button>
+        <button @click="openModal">包包</button>
 
         <!-- Modal -->
         <div v-if="isModalVisible" class="modal-overlay">
             <div class="modal">
                 <div class="modal-header">
-                    <h3>使用者物品清單</h3>
+                    <h3>包包</h3>
                     <button @click="closeModal">X</button>
                 </div>
                 <div class="modal-body">
@@ -18,9 +18,13 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="item in inventory" :key="item.InventoryId">
+                            <tr v-for="item in filteredInventory" :key="item.InventoryId">
                                 <td>{{ item.ItemName }}</td>
-                                <td>{{ item.Quantity }}</td>
+                                <td>{{ item.Quantity }}<button
+                                        v-if="item.ItemType == 'Currency' || item.ItemType == 'Ticket' || item.ItemType == 'PermanentBuff'"
+                                        @click="useInventory(item.ItemId, item.ItemType)">使用</button>
+                                </td>
+
                             </tr>
                         </tbody>
                     </table>
@@ -33,6 +37,7 @@
 
 <script>
 import axios from 'axios';
+import Swal from 'sweetalert2';
 
 export default {
     name: 'UserInventory',
@@ -51,8 +56,43 @@ export default {
     mounted() {
         this.getInventory();
     },
+    computed: {
+        filteredInventory() {
+            return this.inventory.filter(item => item.Quantity > 0);
+        }
+    },
     methods: {
-        async openModal(){
+        async useInventory(itemId, itemType) {
+            const payload = {
+                walletAddress: this.walletAddress,
+                itemId
+            };
+            await axios.post('http://localhost:3000/use-item', payload).then(rs => {
+                if (itemType == 'Ticket') {
+                    Swal.fire({
+                        title: '抽獎中',
+                        html: `<h2>正在抽獎...</h2>`,
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: async () => {
+                            Swal.showLoading();
+
+                            const finalPrize = rs.data.prize;
+
+                            // SweetAlert 顯示抽中的獎品
+                            Swal.fire({
+                                title: '恭喜！',
+                                html: `<h2>抽中獎品：${finalPrize.ItemName}</h2><p>數量：${finalPrize.ItemValue}</p>`,
+                                icon: 'success',
+                                confirmButtonText: '確定',
+                            });
+                        },
+                    });
+                }
+            });
+            this.getInventory();
+        },
+        async openModal() {
             this.isModalVisible = true; // 打開 Modal
             await this.getInventory();
         },

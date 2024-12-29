@@ -8,6 +8,10 @@ const createGameLogTable = async () => {
       TargetTime DECIMAL(10, 2) DEFAULT NULL,
       GameId VARCHAR(50) NOT NULL,
       Round INT,
+      ItemId INT DEFAULT NULL, -- 道具ID
+      ItemType NVARCHAR(10) DEFAULT NULL, -- 道具種類
+      ItemEffects JSON DEFAULT NULL, -- 道具效果
+      ItemLeftRound INT DEFAULT NULL, -- 道具持續剩餘回合
       StartTime BIGINT DEFAULT NULL, -- Unix Timestamp (毫秒)
       EndTime BIGINT DEFAULT NULL, -- Unix Timestamp (毫秒)
       ElapsedTime DECIMAL(5, 2) DEFAULT NULL,

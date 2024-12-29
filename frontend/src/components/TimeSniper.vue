@@ -1,6 +1,9 @@
 <template>
   <div class="game-container">
-    <UserInventory :wallet-address="walletAddress" @get-inventory="handleInventory" />
+    <div class="user-info-row">
+      <UserInventory :wallet-address="walletAddress" @get-inventory="handleInventory" />
+      <UserBaseInfo :wallet-address="walletAddress"/>
+    </div>
     <h2>遊戲</h2>
     <h2>剩餘可遊玩次數{{ leftOfPlay }}</h2>
     <div v-if="!gameStarted && !gameFinished">
@@ -66,6 +69,7 @@
 <script>
 import axios from 'axios';
 import UserInventory from './UserInventory.vue';
+import UserBaseInfo from './UserBaseInfo.vue';
 
 export default {
   name: 'TimeSniper',
@@ -85,6 +89,7 @@ export default {
   },
   components: {
     UserInventory,
+    UserBaseInfo
   },
   data() {
     return {
@@ -161,7 +166,7 @@ export default {
       }
     },
     handleInventory(inventory) {
-      this.inventory = inventory.filter(item => item.ItemType === 'Item');
+      this.inventory = inventory.filter(item => item.ItemType === 'DamageBuff' || item.ItemType === 'FinalBuff' || item.ItemType === 'FunctionalBuff');
     },
     async onStartGame() {
       if (this.betAmount <= 0 || this.betAmount > this.userTimeCoin) {
@@ -358,5 +363,19 @@ button {
 
 .error {
   color: red;
+}
+.user-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.user-info-row > * {
+  flex: 1;
+}
+
+.user-info-row > :first-child {
+  margin-right: 16px; /* 可調整兩側之間的間距 */
 }
 </style>

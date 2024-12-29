@@ -29,5 +29,6 @@ router.post('/update-user-balance-when-buy-eth', userController.updateUserBalanc
 router.post('/leaderboard-add-bet', userController.leaderboardBet);
 router.post('/find-or-add', verifyWalletSignature, userController.findOrAddUser);
 router.post('/update-prize-pool-after-withdraw', userController.withdrawContract);
+router.post('/get-user-base-info', userController.getUserBaseInfo);
 
 module.exports = router;

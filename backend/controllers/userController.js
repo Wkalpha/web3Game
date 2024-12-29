@@ -93,6 +93,26 @@ const findOrAddUser = async (req, res) => {
 };
 
 /**
+ * 查詢玩家基礎資訊，攻擊力、結算獎勵...等
+ */
+const getUserBaseInfo = async (req, res) => {
+  const { walletAddress } = req.body
+
+  try {
+    const result = await userModel.getBaseInfo(walletAddress);
+
+    res.json({
+      BaseAttackPower: result.BaseAttackPower,
+      RewardMultiplier: result.RewardMultiplier,
+      BaseLeftOfPlay: result.BaseLeftOfPlay
+    })
+  } catch (err) {
+    console.error('查詢失敗', err);
+    res.status(500).send('資料庫錯誤');
+  }
+};
+
+/**
  * 提取合約所有 ETH
  */
 const withdrawContract = async (req, res) => {
@@ -106,5 +126,6 @@ module.exports = {
   updateUserBalanceWhenBuyETH,
   leaderboardBet,
   findOrAddUser,
-  withdrawContract
+  withdrawContract,
+  getUserBaseInfo
 };

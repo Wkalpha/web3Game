@@ -21,7 +21,7 @@ const app = express();
 // 全局速率限制器
 const globalLimiter = rateLimit({
   windowMs: 1 * 30 * 1000, // 每 30 秒
-  max: 100, // 最多 100 次請求
+  max: 1000, // 最多 100 次請求
   message: 'Too many requests, please try again later.'
 });
 

@@ -1,5 +1,5 @@
 <template>
-  
+
   <div id="app">
     <h1>Time Battle DApp</h1>
 
@@ -545,6 +545,10 @@ export default {
 
         if (data.event === 'TimeCoinChange') {
           this.userInfo.timeCoin = data.data.userTimeCoin;
+        }
+
+        if (data.event === 'PlayOfTimesChange') {
+          this.userInfo.leftOfPlay = data.data.leftOfPlay;
         }
 
       };

@@ -120,6 +120,56 @@ const findOrAdd = async (walletAddress) => {
     }
 }
 
+/**
+ * 查詢玩家基礎攻擊力、結算獎勵...等基礎資訊
+ */
+const getBaseInfo = async (walletAddress) => {
+    const [result] = await pool.execute(`SELECT BaseAttackPower, RewardMultiplier, BaseLeftOfPlay FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
+
+    return result[0];
+}
+
+/**
+ * 更新玩家的基礎攻擊力或結算獎勵
+ */
+const updateUserBaseInfo = async (walletAddress, effectType, value) => {
+    switch (effectType) {
+        case 'BaseAttackPower': {
+            // 基礎攻擊
+            const sql = `
+                UPDATE UserInfo
+                SET BaseAttackPower = BaseAttackPower + ?
+                WHERE WalletAddress = ?
+            `;
+            await pool.execute(sql, [value, walletAddress]);
+            break;
+        }
+        case 'RewardMultiplier': {
+            // 獎勵結算
+            const sql = `
+                UPDATE UserInfo
+                SET RewardMultiplier = RewardMultiplier + ?
+                WHERE WalletAddress = ?
+            `;
+            await pool.execute(sql, [value, walletAddress]);
+            break;
+        }
+        case 'BaseLeftOfPlay': {
+            // 遊玩次數
+            const sql = `
+                UPDATE UserInfo
+                SET BaseLeftOfPlay = BaseLeftOfPlay + ? , LeftOfPlay = LeftOfPlay + ?
+                WHERE WalletAddress = ?
+            `;
+            await pool.execute(sql, [value, value, walletAddress]);
+            break;
+        }
+        default: {
+            return res.status(400).json({ error: '更新 UserInfoBase 失敗' });
+        }
+    }
+}
+
 module.exports = {
     getTimeCoinPlayTimes,
     getTimeCoin,
@@ -129,5 +179,7 @@ module.exports = {
     deductPlayTimes,
     findOrAdd,
     updateUserTimeCoinAfterGameOver,
-    updateUserTimeCoin
+    updateUserTimeCoin,
+    updateUserBaseInfo,
+    getBaseInfo
 };
