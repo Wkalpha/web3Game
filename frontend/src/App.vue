@@ -55,7 +55,7 @@
       <!-- 下方：遊戲區域 -->
       <div class="game-section">
         <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-time-coin="userInfo.timeCoin"
-          @game-start="handleGameStart" :wallet-address="walletAddress" />
+          @game-start="handleGameStart" :wallet-address="walletAddress" :show-game-result-text="showText"/>
       </div>
 
       <!-- 顯示排行榜 -->
@@ -113,6 +113,7 @@ export default {
       leaderboardPlayers: [], // 從 API 獲取的排行榜數據
       leaderboardPrizePoolTimeCoin: 0,
       isLoading: false, // 是否正在加載排行榜數據
+      showText: '遊戲進行中'
     };
   },
   computed: {
@@ -507,44 +508,48 @@ export default {
       };
 
       this.webSocket.onmessage = (message) => {
-        const data = JSON.parse(message.data);
-        if (data.event === 'TokensPurchased') {
-          if (data.data.buyer.toLowerCase() === this.walletAddress.toLowerCase()) {
+        const ws = JSON.parse(message.data);
+        if (ws.event === 'TokensPurchased') {
+          if (ws.data.buyer.toLowerCase() === this.walletAddress.toLowerCase()) {
             this.blockchainConfirm = true;
-            this.userInfo.timeCoin = data.data.userTimeCoin;
+            this.userInfo.timeCoin = ws.data.userTimeCoin;
             this.updateBalance(); // 更新畫面錢包餘額
           }
         }
 
-        if (data.event === 'TimeCoinToETH') {
-          if (data.data.buyer.toLowerCase() === this.walletAddress.toLowerCase()) {
-            this.userInfo.timeCoin = data.data.userTimeCoin;
+        if (ws.event === 'TimeCoinToETH') {
+          if (ws.data.buyer.toLowerCase() === this.walletAddress.toLowerCase()) {
+            this.userInfo.timeCoin = ws.data.userTimeCoin;
             this.blockchainConfirm = true;
             this.updateBalance(); // 更新畫面錢包餘額
           }
         }
 
-        if (data.event === 'PrizePoolUpdated') {
-          this.prizePool = data.data.prizePoolTimeCoin
+        if (ws.event === 'PrizePoolUpdated') {
+          this.prizePool = ws.data.prizePoolTimeCoin
         }
 
-        if (data.event === 'LeaderboardPrizePoolUpdated') {
-          this.leaderboardPrizePoolTimeCoin = data.data.leaderboardPrizePoolTimeCoin
+        if (ws.event === 'LeaderboardPrizePoolUpdated') {
+          this.leaderboardPrizePoolTimeCoin = ws.data.leaderboardPrizePoolTimeCoin
         }
 
-        if (data.event === 'TimeCoinChange') {
-          this.userInfo.timeCoin = data.data.userTimeCoin;
+        if (ws.event === 'TimeCoinChange') {
+          this.userInfo.timeCoin = ws.data.userTimeCoin;
         }
 
-        if (data.event === 'PlayOfTimesChange') {
-          this.userInfo.leftOfPlay = data.data.leftOfPlay;
+        if (ws.event === 'PlayOfTimesChange') {
+          this.userInfo.leftOfPlay = ws.data.leftOfPlay;
+        }
+
+        if (ws.event === 'GameResult') {
+          this.showText = ws.data.showText;
         }
 
       };
 
       this.webSocket.onclose = () => {
-        console.log('WebSocket 連接已關閉，5 秒後嘗試重新連接');
-        setTimeout(() => this.connectWebSocket(), 5000);
+        console.log('WebSocket 連接已關閉');
+        // setTimeout(() => this.connectWebSocket(), 5000);
       };
 
       this.webSocket.onerror = (error) => {

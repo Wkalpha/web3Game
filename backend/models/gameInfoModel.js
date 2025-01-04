@@ -7,14 +7,14 @@ const pool = require('../database/pool');
  */
 const queryGameInfoByGameId = async (gameId) => {
     const sql = `
-        SELECT WalletAddress, Level, Odds, BetAmount, ItemId, Round
+        SELECT WalletAddress, Level, Odds, BetAmount, ItemId, Round, RewardMultiplier, DamageMultiplier
         FROM GameInfo
         WHERE GameId = ?
     `;
 
     const [rows] = await pool.execute(sql, [gameId]);
-    const { WalletAddress, Level, Odds, BetAmount, ItemId, Round } = rows[0];
-    return { WalletAddress, Level, Odds, BetAmount, ItemId, Round };
+    const { WalletAddress, Level, Odds, BetAmount, ItemId, Round, RewardMultiplier, DamageMultiplier } = rows[0];
+    return { WalletAddress, Level, Odds, BetAmount, ItemId, Round, RewardMultiplier, DamageMultiplier };
 }
 /**
  * 取得關卡資訊

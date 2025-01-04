@@ -1,8 +1,8 @@
 <template>
   <div class="game-container">
     <div class="user-info-row">
-      <UserInventory :wallet-address="walletAddress" @get-inventory="handleInventory" />
-      <UserBaseInfo :wallet-address="walletAddress"/>
+      <UserInventory ref="userInventory" :wallet-address="walletAddress" @get-inventory="handleInventory" />
+      <UserBaseInfo :wallet-address="walletAddress" />
     </div>
     <h2>遊戲</h2>
     <h2>剩餘可遊玩次數{{ leftOfPlay }}</h2>
@@ -42,8 +42,7 @@
     <div v-if="gameFinished">
       <h3>遊戲結束</h3>
       <p>總分：{{ totalScore }}</p>
-      <p>{{ resultMessage }}</p>
-      <p>{{ balanceChange }}</p>
+      <p>{{ showGameResultText }}</p>
       <button @click="resetGame">重新開始</button>
     </div>
 
@@ -85,6 +84,10 @@ export default {
     walletAddress: {
       type: String,
       required: true
+    },
+    showGameResultText: {
+      type: String,
+      required: true
     }
   },
   components: {
@@ -124,18 +127,7 @@ export default {
         !!this.difficulty &&
         this.leftOfPlay > 0
       );
-    },
-    resultMessage() {
-      return this.totalScore >= this.threshold ? '恭喜你贏了！' : '很遺憾，你輸了。';
-    },
-    balanceChange() {
-      if (this.totalScore >= this.threshold) {
-        return `獲得 ${this.betAmount * this.odds} Time Coin`
-      }
-      else {
-        return `失去 ${this.betAmount} Time Coin`
-      }
-    },
+    }
   },
   methods: {
     startCountdown() {
@@ -196,29 +188,12 @@ export default {
     async startGame() {
       this.gameStarted = true;
 
-      switch (this.difficulty) {
-        case 'Easy':
-          this.odds = 0.01;
-          break;
-        case 'Normal':
-          this.odds = 0.03;
-          break;
-        case 'Hard':
-          this.odds = 0.1;
-          break;
-        default:
-          break;
-      }
-
       const payload = {
         walletAddress: this.walletAddress,
         level: this.difficulty,
-        odds: this.odds,
         amountInput: this.betAmount,
         itemId: this.selectedItem ? this.selectedItem.ItemId : null, // 傳遞選中的道具
       }
-
-      // console.log(payload)
 
       await axios.post('http://localhost:3000/update-balance-when-game-start', payload).then(rs => {
         this.startCountdown();
@@ -264,10 +239,16 @@ export default {
       // 回合結束
       this.targetTime = null;
       this.currentRound++;
-      
+
       if (this.currentRound > this.gameRound) {
         this.gameFinished = true;
         this.gameStarted = false;
+
+        // 讓子組件重新取得 UserInventory
+        if (this.$refs.userInventory) {
+          this.$refs.userInventory.getInventory();
+        }
+
         clearInterval(this.countdownInterval);
       }
     },
@@ -350,6 +331,7 @@ button {
 .error {
   color: red;
 }
+
 .user-info-row {
   display: flex;
   justify-content: space-between;
@@ -357,11 +339,12 @@ button {
   margin-bottom: 16px;
 }
 
-.user-info-row > * {
+.user-info-row>* {
   flex: 1;
 }
 
-.user-info-row > :first-child {
-  margin-right: 16px; /* 可調整兩側之間的間距 */
+.user-info-row> :first-child {
+  margin-right: 16px;
+  /* 可調整兩側之間的間距 */
 }
 </style>

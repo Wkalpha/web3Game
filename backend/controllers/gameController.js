@@ -174,9 +174,6 @@ const endTimer = async (req, res) => {
 
         await gameLogModel.updateWhenEndTimer({ gameId: gameId, endTime: endTime, elapsedTime: elapsedTime, scores: scores });
 
-        console.log('currentRoundInfo.currentRound', currentRoundInfo.currentRound)
-        console.log('gameInfo.Round', gameInfo.Round)
-
         if (currentRoundInfo.currentRound == gameInfo.Round) {
             await gameOver(gameId);
         }
@@ -195,12 +192,13 @@ const endTimer = async (req, res) => {
 const gameOver = async (gameId) => {
 
     try {
-        console.log('Game Over')
         // 拿 gameId 去 GameLog 把 Score 加總後判斷勝負，門檻值要根據不同的難度有所高低
-        const totalScore = await gameLogModel.sumScoreByGameId(gameId);
+        let totalScore = await gameLogModel.sumScoreByGameId(gameId);
 
-        // GameInfo 找資訊
+        // 取得 GameInfo 資訊
         const gameInfo = await gameInfoModel.queryGameInfoByGameId(gameId);
+
+        totalScore = Math.round(totalScore * (1 + parseFloat(gameInfo.DamageMultiplier)));
 
         // 取得 Game Level 資訊
         const gameLevelInfo = await gameLevelModel.queryGameLevel(gameInfo.Level);
@@ -208,8 +206,13 @@ const gameOver = async (gameId) => {
         // 判斷輸贏
         const gameResult = determineGameResult(totalScore, gameLevelInfo.Threshold);
 
-        const userTimeCoinOdds = gameResult.winOrLose === 'win' ? parseFloat(gameInfo.Odds) : 0;
+        let userTimeCoinOdds = gameResult.winOrLose === 'win' ? parseFloat(gameInfo.Odds) : 0;
         const prizePoolOdds = gameResult.winOrLose === 'lose' ? 1 : -parseFloat(gameInfo.Odds);
+
+        // 取得 UserInfo 資訊
+        const userInfo = await userModel.getBaseInfo(gameInfo.WalletAddress);
+
+        userTimeCoinOdds = Math.round(userTimeCoinOdds * (1 + parseFloat(gameInfo.RewardMultiplier)) * parseFloat(userInfo.RewardMultiplier));
 
         // 1. 更新玩家的餘額
         await userModel.updateUserTimeCoinAfterGameOver(gameInfo.WalletAddress, gameInfo.BetAmount, userTimeCoinOdds);
@@ -230,19 +233,31 @@ const gameOver = async (gameId) => {
         await leaderboardModel.upsertLeaderboardAfterGameOver(gameInfo.WalletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
 
         // 5. 更新 GameInfo
-        console.log('正在更新 GameInfo')
         const profit = gameInfo.BetAmount * userTimeCoinOdds;
         await gameInfoModel.updateWhenGameOver(gameId, gameResult.winOrLose, profit, totalScore);
 
         // websocket
-        const message = {
+        const timeCoinChangeMessage = {
             event: 'TimeCoinChange',
             data: {
                 walletAddress: gameInfo.WalletAddress,
                 userTimeCoin: userTimeCoin
             }
         };
-        webSocketService.sendToPlayerMessage(gameInfo.WalletAddress, message);
+
+        const rewardAmount = parseFloat(gameInfo.BetAmount) * userTimeCoinOdds;
+        const gameResultMessage = {
+            event: 'GameResult',
+            data: {
+                walletAddress: gameInfo.WalletAddress,
+                showText: gameResult.winOrLose === 'win'
+                    ? `挑戰成功，您贏得了 ${rewardAmount} 顆 TimeCoin！`
+                    : '挑戰失敗'
+            }
+        };
+
+        webSocketService.sendToPlayerMessage(gameInfo.WalletAddress, timeCoinChangeMessage);
+        webSocketService.sendToPlayerMessage(gameInfo.WalletAddress, gameResultMessage);
 
     } catch (err) {
         console.error('遊戲結束但發生錯誤', err);
