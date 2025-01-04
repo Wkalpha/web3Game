@@ -150,7 +150,10 @@ const endTimer = async (req, res) => {
 
         const elapsedTime = (((endTime - currentRoundInfo.StartTime) % 60000) / 1000).toFixed(2);
         const difference = Math.abs(elapsedTime - currentRoundInfo.TargetTime);
-        let scores = Math.max(0, Math.floor((1 - difference / 10) * 10));
+
+        // 取得 UserInfo 資訊
+        const userInfo = await userModel.getBaseInfo(currentRoundInfo.WalletAddress);
+        let scores = Math.max(0, Math.floor((1 - difference / 10) * 10)) * parseFloat(userInfo.BaseAttackPower);
 
         const gameInfo = await gameInfoModel.queryGameInfoByGameId(gameId);
 
@@ -169,8 +172,9 @@ const endTimer = async (req, res) => {
                     scores = 10;
                     break;
             }
-            console.log("道具後:", scores)
         }
+
+        scores = Math.round(scores);
 
         await gameLogModel.updateWhenEndTimer({ gameId: gameId, endTime: endTime, elapsedTime: elapsedTime, scores: scores });
 

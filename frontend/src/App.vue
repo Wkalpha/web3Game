@@ -548,8 +548,8 @@ export default {
       };
 
       this.webSocket.onclose = () => {
-        console.log('WebSocket 連接已關閉');
-        // setTimeout(() => this.connectWebSocket(), 5000);
+        console.log('WebSocket 連接已關閉，30秒後重新連線');
+        setTimeout(() => this.connectWebSocket(), 30000);
       };
 
       this.webSocket.onerror = (error) => {

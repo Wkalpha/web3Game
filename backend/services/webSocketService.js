@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const gameInfoModel = require('../models/gameInfoModel');
 const url = require('url'); // 解析 URL 查詢參數
 
 class WebSocketService {
@@ -37,6 +38,7 @@ class WebSocketService {
             // 當 WebSocket 斷開連接時，從列表中移除客戶端
             ws.on('close', () => {
                 console.log(`客戶端已斷開連接，walletAddress: ${walletAddress}`);
+                gameInfoModel.forceEndGame(walletAddress);
                 this.clients.delete(walletAddress);
             });
 

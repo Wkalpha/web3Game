@@ -79,13 +79,13 @@ const queryByGameIdAndRound = async (gameId) => {
     const currentRound = queryCurrentRounds[0].count;
 
     const sql = `
-        SELECT StartTime, TargetTime, ItemLeftRound
+        SELECT StartTime, TargetTime, ItemLeftRound, WalletAddress
         FROM GameLog
         WHERE GameId = ? AND Round = ?;
     `;
     const [rows] = await pool.execute(sql, [gameId, currentRound]);
-    const { StartTime, TargetTime, ItemLeftRound } = rows[0];
-    return { StartTime, TargetTime, ItemLeftRound, currentRound };
+    const { StartTime, TargetTime, ItemLeftRound, WalletAddress } = rows[0];
+    return { StartTime, TargetTime, ItemLeftRound, currentRound, WalletAddress };
 };
 
 /**
