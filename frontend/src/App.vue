@@ -55,7 +55,7 @@
       <!-- 下方：遊戲區域 -->
       <div class="game-section">
         <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-time-coin="userInfo.timeCoin"
-          @game-result="handleGameResult" @game-start="handleGameStart" :wallet-address="walletAddress" />
+          @game-start="handleGameStart" :wallet-address="walletAddress" />
       </div>
 
       <!-- 顯示排行榜 -->
@@ -275,17 +275,6 @@ export default {
     handleBetComplete({ newUserTimeCoin, newLeaderboard }) {
       this.userInfo.timeCoin = newUserTimeCoin;
       this.leaderboardPlayers = newLeaderboard;
-    },
-    async handleGameResult({ userTimeCoin, leaderboard }) {
-      try {
-        this.userInfo.timeCoin = userTimeCoin;
-        this.leaderboardPlayers = leaderboard;
-
-        // await this.getMainPrizePool(); // 如果後端有更新並且發webSocket 這行就可以拔掉了
-
-      } catch (error) {
-        console.error('更新餘額失敗:', error);
-      }
     },
     async handleGameStart({ leftOfPlay, timeCoin }) {
       this.userInfo.timeCoin = timeCoin;

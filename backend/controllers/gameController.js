@@ -1,15 +1,19 @@
 const prizePoolModel = require('../models/prizePoolModel');
+const prizeItemModel = require('../models/prizeItemModel');
 const leaderboardModel = require('../models/leaderboardModel');
 const userModel = require('../models/userModel');
 const gameLogModel = require('../models/gameLogModel');
 const gameInfoModel = require('../models/gameInfoModel');
+const userInventoryModel = require('../models/userInventoryModel');
+const webSocketService = require('../services/webSocketService');
+const gameLevelModel = require('../models/gameLevelModel');
 const { v4: uuidv4 } = require('uuid');
 
 /**
  * 開始遊戲
  */
 const gameStart = async (req, res) => {
-    const { walletAddress, level, odds, amountInput} = req.body;
+    const { walletAddress, level, amountInput, itemId } = req.body;
     const gameId = uuidv4();
     try {
         // 1. 更新玩家的餘額
@@ -21,10 +25,67 @@ const gameStart = async (req, res) => {
         // 3. 重查玩家餘額與次數回傳
         const userInfo = await userModel.getTimeCoinPlayTimes(walletAddress);
 
-        // 4. 相關資訊寫入DB
-        await gameInfoModel.insertWhenGameStart(walletAddress, gameId, level, odds, amountInput);
+        const gameLevelInfo = await gameInfoModel.getLevelInfo(level);
+
+        let gameInfoInput = {
+            addRewardMultiplier: 0,
+            addDamageMultiplier: 0,
+            round: gameLevelInfo.Round
+        };
+
+        // 4. 根據道具準備好遊戲
+        // 檢查玩家是否有足夠道具
+        let item = {};
+        const userInventoryQuantity = await userInventoryModel.getUserInventoryCount(walletAddress, itemId);
+        if (userInventoryQuantity > 0) {
+            item = await prizeItemModel.getItemInfo(itemId);
+            if (item) {
+                switch (item.EffectType) {
+                    case 'ExtendRound': {
+                        gameInfoInput.round += item.EffectValue
+                        break;
+                    }
+                    case 'FinalDamageBonus': {
+                        gameInfoInput.addDamageMultiplier += item.EffectValue
+                        break;
+                    }
+                    case 'RewardBonus': {
+                        gameInfoInput.addRewardMultiplier += item.EffectValue
+                        break;
+                    }
+                }
+                // 扣除數量
+                await userInventoryModel.decrementItemQuantity(userInfo.Id, itemId, 1);
+            }
+        }
+
+        // 5. 相關資訊寫入DB
+        await gameInfoModel.insertWhenGameStart({
+            walletAddress,
+            gameId,
+            level,
+            round: gameInfoInput.round,
+            rewardMultiplier: gameInfoInput.addRewardMultiplier,
+            damageMultiplier: gameInfoInput.addDamageMultiplier,
+            itemId: item?.ItemId ?? null,
+            odds: gameLevelInfo.RewardMultiplier,
+            amountInput
+        });
+
+        // 6. 寫入log
+        await gameLogModel.insertWhenGameStart({
+            walletAddress: walletAddress,
+            gameId: gameId,
+            round: 1,
+            itemId: item?.ItemId ?? null,
+            itemType: item?.EffectType ?? null,
+            itemEffectValue: item?.EffectValue ?? null,
+            itemLeftRound: item?.EffectDurationRounds ?? null
+        });
 
         res.json({
+            gameRound: gameInfoInput.round,
+            threshold: gameLevelInfo.Threshold,
             gameId,
             leftOfPlay: userInfo?.LeftOfPlay,
             timeCoin: userInfo?.AdjustedTimeCoin
@@ -39,25 +100,32 @@ const gameStart = async (req, res) => {
  * 取得目標秒數
  */
 const getTargetTime = async (req, res) => {
-    const { gameId, walletAddress, round } = req.body;
+    const { gameId, walletAddress } = req.body;
 
     const targetTime = (Math.random() * 9 + 1).toFixed(2); // 1 到 10 秒的目標時間
 
-    await gameLogModel.insertWhenGetTargetTime(walletAddress, gameId, targetTime, round);
+    const round = await gameLogModel.getGameLogCountByGameId(gameId);
 
-    res.json({ targetTime });
+    await gameLogModel.updateWhenGetTargetTime({ walletAddress: walletAddress, gameId: gameId, round: round, targetTime: targetTime });
+
+    res.json({
+        targetTime
+    });
 };
 
 /**
  * 開始計時
  */
 const startTimer = async (req, res) => {
-    const { gameId, round } = req.body;
+    const { gameId } = req.body;
     const startTime = Date.now();
 
     try {
+        const round = await gameLogModel.getGameLogCountByGameId(gameId);
+
         // 儲存開始時間到數據庫
         await gameLogModel.updateWhenStartTimer(gameId, startTime, round);
+
         res.json({ success: true });
     } catch (err) {
         console.error('無法開始計時：', err);
@@ -69,49 +137,78 @@ const startTimer = async (req, res) => {
  * 停止計時
  */
 const endTimer = async (req, res) => {
-    const { gameId, round } = req.body;
+    const { gameId } = req.body;
     const endTime = Date.now();
 
     try {
-        const result = await gameLogModel.queryByGameIdAndRound(gameId, round);
+        // 當前回合資訊
+        const currentRoundInfo = await gameLogModel.queryByGameIdAndRound(gameId);
 
-        const elapsedTime = (((endTime - result.StartTime) % 60000) / 1000).toFixed(2); // 經過秒數
-
-        const difference = Math.abs(elapsedTime - result.TargetTime);
-
-        // 計算分差
-        const scores = Math.max(0, Math.floor((1 - difference / 10) * 10));
-
-        const roundData = await gameLogModel.updateWhenEndTimer(gameId, endTime, round, elapsedTime, scores);
-
-        if (roundData.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: '更新失敗' });
+        if (!currentRoundInfo) {
+            return res.status(404).json({ success: false, message: '遊戲記錄不存在' });
         }
 
-        res.json({ success: true, scores, elapsedTime });
+        const elapsedTime = (((endTime - currentRoundInfo.StartTime) % 60000) / 1000).toFixed(2);
+        const difference = Math.abs(elapsedTime - currentRoundInfo.TargetTime);
+        let scores = Math.max(0, Math.floor((1 - difference / 10) * 10));
+
+        const gameInfo = await gameInfoModel.queryGameInfoByGameId(gameId);
+
+        const item = await prizeItemModel.getItemInfo(gameInfo.ItemId);
+
+        // 檢查道具影響
+        if (gameInfo.ItemId && currentRoundInfo.ItemLeftRound > 0) {
+            switch (item.EffectType) {
+                case 'DamageBonus':
+                    scores = Math.floor(scores * (1 + item.EffectValue));
+                    break;
+                case 'RandomScore':
+                    scores += Math.floor(Math.random() * 5) + 1;
+                    break;
+                case 'AsignTime':
+                    scores = 10;
+                    break;
+            }
+            console.log("道具後:", scores)
+        }
+
+        await gameLogModel.updateWhenEndTimer({ gameId: gameId, endTime: endTime, elapsedTime: elapsedTime, scores: scores });
+
+        console.log('currentRoundInfo.currentRound', currentRoundInfo.currentRound)
+        console.log('gameInfo.Round', gameInfo.Round)
+
+        if (currentRoundInfo.currentRound == gameInfo.Round) {
+            await gameOver(gameId);
+        }
+
+        return res.json({ success: true, scores, elapsedTime });
+
     } catch (err) {
         console.error('無法停止計時：', err);
-        res.status(500).send('資料庫錯誤');
+        return res.status(500).json({ success: false, message: '資料庫錯誤' });
     }
 };
 
 /**
  * 遊戲結束
  */
-const gameOver = async (req, res) => {
-    const { gameId } = req.body;
+const gameOver = async (gameId) => {
 
     try {
+        console.log('Game Over')
         // 拿 gameId 去 GameLog 把 Score 加總後判斷勝負，門檻值要根據不同的難度有所高低
         const totalScore = await gameLogModel.sumScoreByGameId(gameId);
 
         // GameInfo 找資訊
         const gameInfo = await gameInfoModel.queryGameInfoByGameId(gameId);
 
-        // 判斷輸贏
-        const gameResult = determineGameResult(totalScore, gameInfo.Level);
+        // 取得 Game Level 資訊
+        const gameLevelInfo = await gameLevelModel.queryGameLevel(gameInfo.Level);
 
-        const userTimeCoinOdds = gameResult.winOrLose === 'win' ? 1 + parseFloat(gameInfo.Odds) : 0;
+        // 判斷輸贏
+        const gameResult = determineGameResult(totalScore, gameLevelInfo.Threshold);
+
+        const userTimeCoinOdds = gameResult.winOrLose === 'win' ? parseFloat(gameInfo.Odds) : 0;
         const prizePoolOdds = gameResult.winOrLose === 'lose' ? 1 : -parseFloat(gameInfo.Odds);
 
         // 1. 更新玩家的餘額
@@ -128,24 +225,27 @@ const gameOver = async (req, res) => {
 
         const winIncrement = gameResult.winOrLose === 'win' ? 1 : 0;
         const loseIncrement = gameResult.winOrLose === 'lose' ? 1 : 0;
-        const scoreAdjustment = gameResult.winOrLose === 'win' ? gameResult.scoreAdjustment : -gameResult.scoreAdjustment;
+        const scoreAdjustment = gameResult.winOrLose === 'win' ? gameLevelInfo.Score : -gameLevelInfo.Score;
 
         await leaderboardModel.upsertLeaderboardAfterGameOver(gameInfo.WalletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
 
-        // 5. 獲取排行榜數據
-        const leaderboard = await leaderboardModel.getLeaderboard(yearWeek);
-
-        // 6. 更新 GameInfo
+        // 5. 更新 GameInfo
+        console.log('正在更新 GameInfo')
         const profit = gameInfo.BetAmount * userTimeCoinOdds;
-        await gameInfoModel.updateWhenGameOver(gameId, gameResult.winOrLose, profit);
+        await gameInfoModel.updateWhenGameOver(gameId, gameResult.winOrLose, profit, totalScore);
 
-        res.json({
-            userTimeCoin,
-            leaderboard
-        });
+        // websocket
+        const message = {
+            event: 'TimeCoinChange',
+            data: {
+                walletAddress: gameInfo.WalletAddress,
+                userTimeCoin: userTimeCoin
+            }
+        };
+        webSocketService.sendToPlayerMessage(gameInfo.WalletAddress, message);
+
     } catch (err) {
         console.error('遊戲結束但發生錯誤', err);
-        res.status(500).send('資料庫錯誤');
     }
 };
 
@@ -165,32 +265,14 @@ const calculateYearWeek = () => {
 /**
  * 傳入分數和難度，判斷輸贏並返回固定的分數調整
  * @param {Int} totalScores - 玩家總分
- * @param {String} level - 遊戲難度 (easy, normal, hard)
- * @returns {Object} 包含 GameResult 和 ScoreAdjustment 的物件
+ * @param {Int} threshold - 門檻值
+ * @returns {Object} 包含 GameResult 物件
  */
-const determineGameResult = (totalScores, level) => {
-    const levelThreshold = {
-        easy: 50,
-        normal: 70,
-        hard: 90
-    };
-
-    const scoreAdjustmentRules = {
-        easy: { win: 1, lose: -1 },
-        normal: { win: 3, lose: -3 },
-        hard: { win: 5, lose: -5 }
-    };
-
-    // 判斷門檻值，默認值為 50
-    const threshold = levelThreshold[level.toLowerCase()] || 50;
-
+const determineGameResult = (totalScores, threshold) => {
     // 判斷遊戲結果
     const winOrLose = totalScores >= threshold ? 'win' : 'lose';
 
-    // 根據規則返回分數調整
-    const scoreAdjustment = scoreAdjustmentRules[level.toLowerCase()]?.[winOrLose] || 0;
-
-    return { winOrLose, scoreAdjustment };
+    return { winOrLose };
 };
 
 

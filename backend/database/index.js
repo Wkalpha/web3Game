@@ -13,6 +13,7 @@ const createResetLeftOfPlayDailyEvent = require('./events/ResetLeftOfPlayDaily')
 const createUpdateLeaderboardWeeklyEvent = require('./events/UpdateLeaderboardWeekly');
 const createGameInfoTable = require('./tables/GameInfo');
 const createGameLogTable = require('./tables/GameLog');
+const createGameLevel = require('./tables/GameLevel');
 
 (async () => {
     try {
@@ -28,6 +29,7 @@ const createGameLogTable = require('./tables/GameLog');
         await createUserInventoryTable();
         await createGameInfoTable();
         await createGameLogTable();
+        await createGameLevel();
         await createUpdateTop3RanksFunction();
         await createResetLeftOfPlayDailyEvent();
         await createUpdateLeaderboardWeeklyEvent();

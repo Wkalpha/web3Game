@@ -27,7 +27,7 @@
     <div v-if="gameStarted">
       <p v-if="countdownTime >= 60">倒數時間：{{ Math.floor(countdownTime / 60) }} 分鐘</p>
       <p v-else>遊戲即將結束</p>
-      <h3>回合 {{ currentRound }} / 10</h3>
+      <h3>回合 {{ currentRound }} / {{ gameRound }}</h3>
       <p v-if="!targetTime">目標秒數: -</p>
       <p v-else>目標秒數: {{ targetTime }}</p>
       <button v-if="!targetTime" @click="getTargetTime">取得目標時間</button>
@@ -103,6 +103,8 @@ export default {
       timing: false,
       elapsedTime: null, // 計時的經過時間
       currentRound: 1,
+      gameRound: 0,
+      threshold: 0,
       totalScore: 0,
       currentRoundScore: null,
       countdownTime: 180, // 3分鐘倒數時間，單位為秒
@@ -124,10 +126,10 @@ export default {
       );
     },
     resultMessage() {
-      return this.totalScore >= 60 ? '恭喜你贏了！' : '很遺憾，你輸了。';
+      return this.totalScore >= this.threshold ? '恭喜你贏了！' : '很遺憾，你輸了。';
     },
     balanceChange() {
-      if (this.totalScore >= 60) {
+      if (this.totalScore >= this.threshold) {
         return `獲得 ${this.betAmount * this.odds} Time Coin`
       }
       else {
@@ -145,7 +147,6 @@ export default {
           clearInterval(this.countdownInterval);
           this.gameFinished = true;
           this.gameStarted = false;
-          this.finishGame();
         }
       }, 1000);
     },
@@ -193,7 +194,7 @@ export default {
       this.isModalVisible = false; // 關閉 Modal
     },
     async startGame() {
-      // this.gameStarted = true;
+      this.gameStarted = true;
 
       switch (this.difficulty) {
         case 'Easy':
@@ -217,22 +218,23 @@ export default {
         itemId: this.selectedItem ? this.selectedItem.ItemId : null, // 傳遞選中的道具
       }
 
-      console.log(payload)
+      // console.log(payload)
 
-      // await axios.post('http://localhost:3000/update-balance-when-game-start', payload).then(rs => {
-      //   this.startCountdown();
-      //   this.gameId = rs.data.gameId;
-      //   // 通知父組件
-      //   this.$emit('game-start', { leftOfPlay: rs.data.leftOfPlay, timeCoin: rs.data.timeCoin });
-      // })
+      await axios.post('http://localhost:3000/update-balance-when-game-start', payload).then(rs => {
+        this.startCountdown();
+        this.gameId = rs.data.gameId;
+        this.gameRound = rs.data.gameRound;
+        this.threshold = rs.data.threshold;
+        // 通知父組件
+        this.$emit('game-start', { leftOfPlay: rs.data.leftOfPlay, timeCoin: rs.data.timeCoin });
+      })
 
     },
     async getTargetTime() {
       // 打後端取得時間
       const payload = {
         gameId: this.gameId,
-        walletAddress: this.walletAddress,
-        round: this.currentRound
+        walletAddress: this.walletAddress
       }
       await axios.post('http://localhost:3000/getTargetTime', payload).then(rs => {
         this.targetTime = rs.data.targetTime;
@@ -243,8 +245,7 @@ export default {
       this.timing = true;
       // 打後端開始計時
       const payload = {
-        gameId: this.gameId,
-        round: this.currentRound
+        gameId: this.gameId
       }
       await axios.post('http://localhost:3000/start-timer', payload);
     },
@@ -252,8 +253,7 @@ export default {
       this.timing = false;
       // 打後端停止計時
       const payload = {
-        gameId: this.gameId,
-        round: this.currentRound
+        gameId: this.gameId
       }
 
       await axios.post('http://localhost:3000/end-timer', payload).then(rs => {
@@ -264,27 +264,12 @@ export default {
       // 回合結束
       this.targetTime = null;
       this.currentRound++;
-
-      // 如果到第10回合，結束遊戲
-      if (this.currentRound > 10) {
+      
+      if (this.currentRound > this.gameRound) {
         this.gameFinished = true;
         this.gameStarted = false;
-        this.finishGame();
+        clearInterval(this.countdownInterval);
       }
-    },
-    async finishGame() {
-      clearInterval(this.countdownInterval);
-
-      const payload = {
-        gameId: this.gameId
-      }
-
-      await axios.post('http://localhost:3000/update-balance-when-game-over', payload).then(rs => {
-        // 通知父組件
-        this.$emit('game-result', { userTimeCoin: rs.data.userTimeCoin, leaderboard: rs.data.leaderboard });
-      });
-
-
     },
     resetGame() {
       clearInterval(this.countdownInterval);
@@ -300,6 +285,7 @@ export default {
       this.currentRoundScore = null;
       this.gameFinished = false;
       this.countdownTime = 180;
+      this.selectedItem = null;
     },
   },
 };

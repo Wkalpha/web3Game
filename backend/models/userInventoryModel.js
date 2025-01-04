@@ -58,7 +58,7 @@ const queryUserInventory = async (walletAddress) => {
         ON
             ui.ItemId = pi.ItemId
         WHERE
-            ui.UserId = ?
+            ui.UserId = ? AND ui.Quantity > 0
         ORDER BY
             ui.AcquiredTime DESC;
     `;
@@ -72,8 +72,48 @@ const queryUserInventory = async (walletAddress) => {
     }
 };
 
+/**
+ * 回傳玩家擁有此道具數量
+ */
+const getUserInventoryCount = async (walletAddress, itemId) => {
+    if (!itemId) {
+        return 0; // itemId 無效時直接回傳 0，避免後續查詢錯誤
+    }
+
+    // 先查詢 UserId
+    const queryUserIdSQL = `SELECT Id FROM UserInfo WHERE WalletAddress = ?;`;
+
+    // 查詢 UserInventory 內 ItemId 的數量
+    const queryUserInventorySQL = `
+        SELECT Quantity
+        FROM UserInventory
+        WHERE UserId = ? AND ItemId = ?;
+    `;
+
+    try {
+        // 先查 walletAddress 找 UserId
+        const [userRows] = await pool.execute(queryUserIdSQL, [walletAddress]);
+
+        if (userRows.length === 0) {
+            console.warn(`User with wallet address ${walletAddress} not found.`);
+            return 0; // 如果找不到該玩家，回傳 0
+        }
+
+        const userId = userRows[0].Id;
+
+        // 再用 UserId 查詢該玩家的道具數量
+        const [inventoryRows] = await pool.execute(queryUserInventorySQL, [userId, itemId]);
+
+        return inventoryRows[0].Quantity; // 回傳擁有的數量
+    } catch (error) {
+        console.error("Error fetching user inventory count:", error);
+        throw error; // 拋出錯誤，讓上層處理
+    }
+};
+
 module.exports = {
     insertUserInventory,
     queryUserInventory,
-    decrementItemQuantity
+    decrementItemQuantity,
+    getUserInventoryCount
 };

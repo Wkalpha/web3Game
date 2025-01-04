@@ -35,7 +35,7 @@ const updateUserTimeCoin = async (timeCoin, walletAddress) => {
  * @param {string} walletAddress - 玩家的錢包地址
  */
 const getTimeCoinPlayTimes = async (walletAddress) => {
-    const sql = `SELECT FLOOR(TimeCoin) AS AdjustedTimeCoin, LeftOfPlay FROM UserInfo WHERE WalletAddress = ?`;
+    const sql = `SELECT Id, FLOOR(TimeCoin) AS AdjustedTimeCoin, LeftOfPlay FROM UserInfo WHERE WalletAddress = ?`;
     const [rows] = await pool.execute(sql, [walletAddress]);
     return rows[0];
 };
