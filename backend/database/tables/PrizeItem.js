@@ -6,7 +6,7 @@ const createPrizeItemTable = async () => {
         ItemId INT AUTO_INCREMENT PRIMARY KEY,
         PoolId INT NOT NULL,
         ItemName VARCHAR(100) NOT NULL UNIQUE,
-        ItemType ENUM('Currency', 'Ticket', 'FunctionalBuff', 'DamageBuff', 'PermanentBuff', 'FinalBuff', 'NFT') NOT NULL,
+        ItemType ENUM('Currency', 'Ticket', 'FunctionalBuff', 'DamageBuff', 'PermanentBuff', 'FinalBuff', 'NFT', 'Property') NOT NULL,
         ItemValue INT DEFAULT NULL,
         Rarity ENUM('Normal', 'Rare', 'Epic', 'Legendary') NOT NULL,
         DropRate DECIMAL(10, 5) NOT NULL,
@@ -51,7 +51,7 @@ const createPrizeItemTable = async () => {
       (3, '永久結算傷害提升0.5%', 'PermanentBuff', 1, 'Epic', 0.05, 1, '{"value": 0.005, "type": "BaseAttackPower"}'),
       (3, '永久結算獎勵提升0.5%', 'PermanentBuff', 1, 'Epic', 0.05, 1, '{"value": 0.005, "type": "RewardMultiplier"}'),
       (3, '永久提高每日挑戰次數1次', 'PermanentBuff', 1, 'Epic', 0.05, 1, '{"value": 1, "type": "BaseLeftOfPlay"}'),
-      (3, 'SSR NFT', 'NFT', 1, 'Epic', 0.001, 1, '{"value": 1, "type": "NFT"}');
+      (3, '資產抽獎券', 'Property', 1, 'Epic', 0.001, 1, '{"value": 1, "type": "Property"}');
     `;
 
   await pool.execute(insertDataSql);

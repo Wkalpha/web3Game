@@ -8,12 +8,11 @@ const createPrizeItemTable = require('./tables/PrizeItem');
 const createUserDrawLogTable = require('./tables/UserDrawLog');
 const createUserDrawCounterTable = require('./tables/UserDrawCounter');
 const createUserInventoryTable = require('./tables/UserInventory');
-const createUpdateTop3RanksFunction = require('./functions/UpdateTop3Ranks');
 const createResetLeftOfPlayDailyEvent = require('./events/ResetLeftOfPlayDaily');
-const createUpdateLeaderboardWeeklyEvent = require('./events/UpdateLeaderboardWeekly');
 const createGameInfoTable = require('./tables/GameInfo');
 const createGameLogTable = require('./tables/GameLog');
 const createGameLevel = require('./tables/GameLevel');
+const createRewardLogTable = require('./tables/RewardLog');
 
 (async () => {
     try {
@@ -30,9 +29,8 @@ const createGameLevel = require('./tables/GameLevel');
         await createGameInfoTable();
         await createGameLogTable();
         await createGameLevel();
-        await createUpdateTop3RanksFunction();
         await createResetLeftOfPlayDailyEvent();
-        await createUpdateLeaderboardWeeklyEvent();
+        await createRewardLogTable();
 
         console.log('所有表、函數、事件初始化完成');
     } catch (err) {

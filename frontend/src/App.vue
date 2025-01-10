@@ -60,7 +60,7 @@
 
       <!-- 顯示排行榜 -->
       <LeaderBoard :is-visible="showLeaderboard" :players="leaderboardPlayers"
-        @closeLeaderboard="showLeaderboard = false" :isLoading="isLoading" :userWalletAddress="walletAddress"
+        @closeLeaderboard="showLeaderboard = false" :isLoading="isLoading" :userWalletAddress="walletAddress" :current-week="currentWeek"
         :userTimeCoin="userInfo.timeCoin" @bet-complete="handleBetComplete" />
     </div>
 
@@ -100,6 +100,7 @@ export default {
         timeCoin: 0,
         leftOfPlay: 0, // 剩餘可遊玩次數
       },
+      currentWeek: true,
       ethToTimeCoinInputBox: false,
       eth: null,
       timeCoinToETHInputBox: false,
@@ -220,6 +221,7 @@ export default {
     },
     async openLeaderboard(when) {
       try {
+        this.currentWeek = true;
         // 開啟 loading 狀態
         this.isLoading = true;
 
@@ -228,6 +230,7 @@ export default {
         let targetDate = new Date(currentDate);
 
         if (when === -1) {
+          this.currentWeek = false;
           // 計算上一週的日期
           targetDate.setDate(targetDate.getDate() - 7);
         }

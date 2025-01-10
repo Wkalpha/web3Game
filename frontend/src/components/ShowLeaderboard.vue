@@ -1,8 +1,9 @@
 <template>
   <div class="leaderboard-overlay" v-if="isVisible">
     <div class="leaderboard-content">
-      <h2>本周排行榜</h2>
-      <h3>(結算時間: {{ countdown }})</h3>
+      <h2 v-if="currentWeek">本周排行榜</h2>
+      <h2 v-else>上週排行榜</h2>
+      <h3 v-if="currentWeek">(結算時間: {{ countdown }})</h3>
       <button class="close-button" @click="closeLeaderboard">X</button>
 
       <!-- 如果正在加載，則顯示加載中 -->
@@ -16,7 +17,7 @@
             {{ formatWalletAddress(player.WalletAddress) }}
             <span v-if="isSelf(player.WalletAddress)" class="self-tag">(自己)</span>
           </span>
-          <button class="bet-button" @click="placeBet(player)">下注{{ player.BetAmount }}</button>
+          <button v-if="currentWeek" class="bet-button" @click="placeBet(player)">下注{{ player.BetAmount }}</button>
           <span class="player-score">{{ player.Scores }}分</span>
         </li>
       </ul>
@@ -49,6 +50,10 @@ export default {
     },
     userTimeCoin: {
       type: Number,
+      required: true
+    },
+    currentWeek:{
+      type: Boolean,
       required: true
     }
   },
