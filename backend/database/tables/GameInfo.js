@@ -3,7 +3,7 @@ const pool = require('../pool');
 const createGameInfoTable = async () => {
   const createTableSql = `
     CREATE TABLE IF NOT EXISTS GameInfo (
-      ID INT PRIMARY KEY AUTO_INCREMENT,
+      Id INT PRIMARY KEY AUTO_INCREMENT,
       WalletAddress VARCHAR(255) NOT NULL,
       GameId VARCHAR(50) NOT NULL,
       Level NVARCHAR(50) DEFAULT NULL,

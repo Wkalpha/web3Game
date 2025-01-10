@@ -40,6 +40,9 @@
               <button @click="openLeaderboard(1)">查看排行榜</button>
             </div>
           </div>
+
+          <!-- 徽章展示區 -->
+          <BadgeDisplay :wallet-address="walletAddress" />
         </div>
 
         <!-- 右側：功能操作區 -->
@@ -49,19 +52,23 @@
           <button @click="openTimeCoinToETHInputBox">兌換 ETH</button>
           <button @click="openTimeCoinToPlayTimesInputBox">購買遊玩次數</button>
           <PrizeItemPool :wallet-address="walletAddress" :user-time-coin="userInfo.timeCoin" />
+
+          <!-- 抽徽章 -->
+          <BadgeLottery :wallet-address="walletAddress" />
+          
         </div>
       </div>
 
       <!-- 下方：遊戲區域 -->
       <div class="game-section">
         <TimeSniper :left-of-play="userInfo.leftOfPlay" :user-time-coin="userInfo.timeCoin"
-          @game-start="handleGameStart" :wallet-address="walletAddress" :show-game-result-text="showText"/>
+          @game-start="handleGameStart" :wallet-address="walletAddress" :show-game-result-text="showText" />
       </div>
 
       <!-- 顯示排行榜 -->
       <LeaderBoard :is-visible="showLeaderboard" :players="leaderboardPlayers"
-        @closeLeaderboard="showLeaderboard = false" :isLoading="isLoading" :userWalletAddress="walletAddress" :current-week="currentWeek"
-        :userTimeCoin="userInfo.timeCoin" @bet-complete="handleBetComplete" />
+        @closeLeaderboard="showLeaderboard = false" :isLoading="isLoading" :userWalletAddress="walletAddress"
+        :current-week="currentWeek" :userTimeCoin="userInfo.timeCoin" @bet-complete="handleBetComplete" />
     </div>
 
   </div>
@@ -75,6 +82,8 @@ import axios from 'axios';
 import TimeSniper from '../src/components/TimeSniper.vue';
 import LeaderBoard from './components/ShowLeaderboard.vue';
 import PrizeItemPool from './components/PrizeItemPool.vue';
+import BadgeDisplay from "./components/BadgeDisplay.vue";
+import BadgeLottery from "./components/BadgeLottery.vue";
 import Swal from 'sweetalert2';
 
 export default {
@@ -82,7 +91,9 @@ export default {
   components: {
     TimeSniper,
     LeaderBoard,
-    PrizeItemPool
+    PrizeItemPool,
+    BadgeDisplay,
+    BadgeLottery,
   },
   data() {
     return {
@@ -114,7 +125,8 @@ export default {
       leaderboardPlayers: [], // 從 API 獲取的排行榜數據
       leaderboardPrizePoolTimeCoin: 0,
       isLoading: false, // 是否正在加載排行榜數據
-      showText: '遊戲進行中'
+      showText: '遊戲進行中',
+      badges: [],
     };
   },
   computed: {
