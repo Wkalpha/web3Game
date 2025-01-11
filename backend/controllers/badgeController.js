@@ -1,16 +1,24 @@
 const badgeModel = require('../models/badgeModel');
-const prizeItemPoolModel = require('../models/prizeItemPoolModel');
 const userModel = require('../models/userModel');
-const userDrawCounterModel = require('../models/userDrawCounterModel');
 const userInventoryModel = require('../models/userInventoryModel');
-const userDrawLogModel = require('../models/userDrawLogModel');
-const webSocketService = require('../services/webSocketService');
+const userBadgeModel = require('../models/userBadgeModel');
 
 /**
  * 取得所有徽章資訊
  */
 const getBadges = async (_, res) => {
   const result = await badgeModel.getBadges();
+  res.json({
+    badges: result
+  });
+}
+
+/**
+ * 取得使用者的徽章
+ */
+const getUserBadges = async (req, res) => {
+  const walletAddress = req.body.walletAddress;
+  const result = await badgeModel.getUserBadges(walletAddress);
   res.json({
     badges: result
   });
@@ -37,100 +45,48 @@ const drawPrize = async (req, res) => {
 /**
  * 抽獎邏輯
  */
-const performDraw = async (poolName, walletAddress, ticket) => {
+const performDraw = async (walletAddress) => {
   // 1. 準備好 badgedetail 的資料，包括機率
-  // 2. 抽獎邏輯
-  // 3. 拿 WalletAddress 去 UserInfo 換 Id
-  // 4. 拿 Id 去 UserInventory 換 ItemId = 25 的 Quantity
-  // 5. Quantity > 0 的話，減 1 後執行抽獎
-  // 6. 抽到的寫入 UserBadge
-  // ...
-  const poolInfo = await prizeItemPoolModel.queryPrizeItemPool();
-  const filtered = poolInfo.filter(row => row.PoolName === poolName).map(({ PrizeItemPoolId, PoolName, EntryFee, GuaranteeDraw }) => ({
-    PrizeItemPoolId,
-    PoolName,
-    EntryFee,
-    GuaranteeDraw
-  }));
+  const badgeDetailInfo = await badgeModel.getBadges(); // Name, DropRate
 
-  if (filtered.length === 0) {
-    throw new Error(`No pool found for PoolName: ${poolName}`);
-  }
+  const userInfo = await userModel.getUser(walletAddress);
 
-  const entryFee = ticket ? 0 : filtered[0].EntryFee;
-  const guaranteeDraw = filtered[0].GuaranteeDraw;
-  const prizeItemPoolId = filtered[0].PrizeItemPoolId;
+  // 2. 拿 Id 去 UserInventory 換 ItemId = 25 的 Quantity
+  const ticketQuantity = await userInventoryModel.getUserInventoryCount(walletAddress, 25);
 
-  const userInfo = await userModel.findOrAdd(walletAddress);
+  // 3. Quantity > 0 的話，減 1 後執行抽獎
+  if (ticketQuantity > 0) {
+    const leftTickets = await userInventoryModel.decrementItemQuantity(userInfo.Id, 25, 1);
+    const totalRate = badgeDetailInfo.reduce((acc, item) => acc + parseFloat(item.DropRate), 0);
 
-  if (userInfo.timeCoin < entryFee) {
-    throw new Error('Time Coin不足');
-  }
+    const random = Math.random() * totalRate;
+    let cumulativeRate = 0;
+    let prize = null;
 
-  let userDrawCounter = await userDrawCounterModel.getDrawCounter(userInfo.userId, prizeItemPoolId);
+    for (const item of badgeDetailInfo) {
+      cumulativeRate += parseFloat(item.DropRate);
+      if (random <= cumulativeRate) {
+        prize = item;
+        break;
+      }
+    }
+    // 4. 將抽到的物品的寫入/更新 UserBadge
+    await badgeModel.insertIntoUserBadge(walletAddress, prize.Id, 1);
 
-  if (userDrawCounter + 1 >= guaranteeDraw) {
-    const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
-    const maxPrize = prizeItems.reduce((prev, current) => (prev.ItemValue > current.ItemValue ? prev : current));
-
-    await userInventoryModel.insertUserInventory(userInfo.userId, maxPrize.ItemId, maxPrize.ItemValue);
-    await userDrawCounterModel.incrementDrawCounter(userInfo.userId, prizeItemPoolId);
-    await userDrawCounterModel.deductDrawCounter(userInfo.userId, prizeItemPoolId, guaranteeDraw);
-    await userDrawLogModel.insertUserDrawLog(userInfo.userId, prizeItemPoolId, maxPrize.ItemId, maxPrize.BigPrize);
+    // 5. 重查 UserBadge 將結果傳回前端
+    const userBadgeInfo = await userBadgeModel.getUserBadge(walletAddress);
 
     return {
-      prize: {
-        ItemName: maxPrize.ItemName,
-        ItemValue: maxPrize.ItemValue
-      },
-      userDrawCounter: 0
+      tickets: leftTickets,
+      prize: prize,
+      badges: userBadgeInfo
     };
   }
-
-  const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
-  const totalRate = prizeItems.reduce((acc, item) => acc + parseFloat(item.DropRate), 0);
-
-  const random = Math.random() * totalRate;
-  let cumulativeRate = 0;
-  let prize = null;
-
-  for (const item of prizeItems) {
-    cumulativeRate += parseFloat(item.DropRate);
-    if (random <= cumulativeRate) {
-      prize = item;
-      break;
-    }
-  }
-
-  if (!prize) {
-    prize = prizeItems[prizeItems.length - 1];
-  }
-
-  await userInventoryModel.insertUserInventory(userInfo.userId, prize.ItemId, prize.ItemValue);
-  await userModel.deductTimeCoin(walletAddress, entryFee);
-  userInfo.timeCoin = await userModel.getTimeCoin(walletAddress);
-  const message = {
-    event: 'TimeCoinChange',
-    data: {
-      walletAddress,
-      userTimeCoin: userInfo.timeCoin
-    }
-  };
-  webSocketService.sendToPlayerMessage(walletAddress, message);
-  await userDrawCounterModel.incrementDrawCounter(userInfo.userId, prizeItemPoolId);
-  await userDrawLogModel.insertUserDrawLog(userInfo.userId, prizeItemPoolId, prize.ItemId, prize.BigPrize);
-
-  return {
-    prize: {
-      ItemName: prize.ItemName,
-      ItemValue: prize.ItemValue
-    },
-    userDrawCounter: userDrawCounter + 1
-  };
 };
 
 module.exports = {
   drawPrize, // 單次抽獎
   performDraw,
-  getBadges
+  getBadges,
+  getUserBadges
 };

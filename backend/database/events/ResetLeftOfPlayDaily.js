@@ -26,9 +26,15 @@ const createResetLeftOfPlayDailyEvent = async () => {
         ON SCHEDULE EVERY 1 DAY 
         STARTS CONVERT_TZ(CURRENT_DATE, @@global.time_zone, '+00:00') + INTERVAL '00:00' HOUR_MINUTE 
         DO 
-        UPDATE UserInfo 
-        SET LeftOfPlay = BaseLeftOfPlay  
-        WHERE LeftOfPlay < BaseLeftOfPlay ;
+        UPDATE UserInfo u
+        JOIN (
+            SELECT WalletAddress, COALESCE(SUM(Quantity), 0) * 2 AS NewBonus
+            FROM UserBadge
+            WHERE BadgeId = 2
+            GROUP BY WalletAddress
+        ) b ON u.WalletAddress = b.WalletAddress
+        SET u.LeftOfPlay = u.BaseLeftOfPlay + b.NewBonus  -- 讓 LeftOfPlay 也同步更新
+        WHERE u.LeftOfPlay < u.BaseLeftOfPlay + b.NewBonus;
     `;
     await pool.query(createResetLeftOfPlayDailyEventSql);
     console.log('ResetLeftOfPlayDaily 事件已建立');

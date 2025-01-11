@@ -18,12 +18,35 @@ const insertUserInventory = async (userId, itemId, quantity) => {
  * 更新 UserInventory 數量
  */
 const decrementItemQuantity = async (userId, itemId, quantity) => {
-    const sql = `
-        UPDATE UserInventory
-        SET Quantity = Quantity - ?
-        WHERE UserId = ? AND ItemId = ?
-    `;
-    await pool.execute(sql, [quantity, userId, itemId]);
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 更新數量，確保數量不會變負數
+        const updateSql = `
+            UPDATE UserInventory
+            SET Quantity = GREATEST(Quantity - ?, 0)
+            WHERE UserId = ? AND ItemId = ?;
+        `;
+        await connection.execute(updateSql, [quantity, userId, itemId]);
+
+        // 查詢更新後的數量
+        const selectSql = `
+            SELECT Quantity FROM UserInventory
+            WHERE UserId = ? AND ItemId = ?;
+        `;
+        const [rows] = await connection.execute(selectSql, [userId, itemId]);
+
+        await connection.commit();
+        connection.release();
+
+        return rows.length > 0 ? rows[0].Quantity : null;
+    } catch (error) {
+        await connection.rollback();
+        connection.release();
+        console.error("Error updating item quantity:", error);
+        throw error;
+    }
 };
 
 /**
@@ -103,6 +126,10 @@ const getUserInventoryCount = async (walletAddress, itemId) => {
 
         // 再用 UserId 查詢該玩家的道具數量
         const [inventoryRows] = await pool.execute(queryUserInventorySQL, [userId, itemId]);
+
+        if (inventoryRows.length === 0) {
+            return 0;
+        }
 
         return inventoryRows[0].Quantity; // 回傳擁有的數量
     } catch (error) {

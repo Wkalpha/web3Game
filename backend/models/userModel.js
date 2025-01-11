@@ -121,6 +121,15 @@ const findOrAdd = async (walletAddress) => {
 }
 
 /**
+ * 查詢玩家資訊
+ */
+const getUser = async (walletAddress) => {
+    const [result] = await pool.execute(`SELECT Id FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
+
+    return result[0];
+}
+
+/**
  * 查詢玩家基礎攻擊力、結算獎勵...等基礎資訊
  */
 const getBaseInfo = async (walletAddress) => {
@@ -171,6 +180,7 @@ const updateUserBaseInfo = async (walletAddress, effectType, value) => {
 }
 
 module.exports = {
+    getUser,
     getTimeCoinPlayTimes,
     getTimeCoin,
     formatTimeCoin,

@@ -7,9 +7,9 @@
     <!-- Modal 彈窗 -->
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
-        <button @click="drawPrize()" class="draw-button" :class="{ 'disabled-button': ticket <= 0 }"
-          :disabled="ticket <= 0">
-          開始抽獎
+        <button @click="drawPrize()" class="draw-button" :class="{ 'disabled-button': tickets <= 0 }"
+          :disabled="tickets <= 0">
+          開始抽獎(擁有{{ tickets }}張券)
         </button>
         <ul>
           <li v-for="(item, index) in badges" :key="index">
@@ -36,9 +36,17 @@ export default {
       required: true
     }
   },
+  async mounted() {
+    await axios.post('http://localhost:3000/get-inventory', { walletAddress: this.walletAddress }).then(rs => {
+      const inventoryData = rs.data;
+      this.tickets = inventoryData.inventory.find(item => item.ItemId === 25)?.Quantity ?? 0;
+    })
+  },
   data() {
     return {
+      tickets: 0,
       badges: [],
+      userBadges: [],
       showModal: false, // 控制 Modal 顯示
     };
   },
@@ -65,7 +73,6 @@ export default {
     async getBadge() {
       await axios.get('http://localhost:3000/get-badges').then(rs => {
         this.badges = rs.data.badges;
-        console.log(rs)
       });
     },
     async drawPrize() {
@@ -93,7 +100,9 @@ export default {
 
             // 3. 發送請求
             const response = await axios.post('http://localhost:3000/draw-badge', payload);
-            const finalPrize = response.data.prize;
+            this.userBadges = response.data;
+            this.tickets = response.data.tickets;
+            const prize = response.data.prize;
 
             // 4. 停止輪詢動畫
             clearInterval(interval);
@@ -101,7 +110,7 @@ export default {
             // 5. 更新 SweetAlert 顯示抽中的獎品
             Swal.fire({
               title: '恭喜！',
-              html: `<h2>抽中：${finalPrize.Name}</h2>`,
+              html: `<h2>抽中：${prize.Name}</h2>`,
               icon: 'success',
               confirmButtonText: '確定',
             });

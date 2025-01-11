@@ -125,8 +125,7 @@ export default {
       leaderboardPlayers: [], // 從 API 獲取的排行榜數據
       leaderboardPrizePoolTimeCoin: 0,
       isLoading: false, // 是否正在加載排行榜數據
-      showText: '遊戲進行中',
-      badges: [],
+      showText: '遊戲進行中'
     };
   },
   computed: {
