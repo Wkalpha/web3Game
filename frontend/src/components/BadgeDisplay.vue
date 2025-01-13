@@ -4,7 +4,7 @@
     <div v-if="userBadges.length > 0" class="badges">
       <div v-for="badge in userBadges" :key="badge.BadgeId" class="badge-item">
         <div class="button-group">
-          <button>效果</button>
+          <button @click="showEffectDialog(badge)">效果</button>
           <button @click="showTransferDialog(badge)">轉移</button>
         </div>
         <img :src="getBadgeImage(badge.BadgeId)" :alt="'Badge ' + badge.BadgeId" class="badge-image" />
@@ -52,8 +52,17 @@ export default {
         console.error("取得徽章時發生錯誤:", error);
       }
     },
+    async showEffectDialog(badge) {
+      Swal.fire({
+        title: `徽章效果`,
+        html: `<p><strong>${badge.Name}</strong></p>
+               <p><strong>您持有 ${badge.Quantity} 個</strong></p>
+              `,
+        icon: 'info',
+        confirmButtonText: '確定'
+      });
+    },
     async showTransferDialog(badge) {
-      console.log(badge)
       const { value: formValues } = await Swal.fire({
         title: "轉移徽章",
         html:

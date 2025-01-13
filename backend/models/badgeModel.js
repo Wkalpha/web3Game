@@ -6,9 +6,14 @@ const pool = require('../database/pool');
  */
 const getUserBadges = async (walletAddress) => {
     const sql = `
-        SELECT BadgeId, Quantity
-        FROM UserBadge
-        WHERE WalletAddress = ? AND Quantity > 0
+        SELECT
+            bd.Name,
+            ub.BadgeId,
+            ub.Quantity, 
+            JSON_UNQUOTE(JSON_EXTRACT(bd.Effects, '$.value')) AS effectValue
+        FROM UserBadge ub
+        JOIN BadgeDetail bd ON ub.BadgeId = bd.Id
+        WHERE ub.WalletAddress = ? AND ub.Quantity > 0;
     `;
 
     const [rows] = await pool.execute(sql, [walletAddress]);
@@ -18,7 +23,7 @@ const getUserBadges = async (walletAddress) => {
 };
 
 /**
- * 取得使用者傷害徽章資訊
+ * 取得使用者徽章資訊
  */
 const getBadgeEffect = async (walletAddress, badgeId) => {
     const query = `

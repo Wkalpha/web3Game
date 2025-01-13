@@ -2,6 +2,8 @@ const userModel = require('../models/userModel');
 const prizePoolModel = require('../models/prizePoolModel');
 const leaderboardModel = require('../models/leaderboardModel');
 const leaderboardBetRecordModel = require('../models/leaderboardBetRecordModel');
+const webSocketService = require('../services/webSocketService');
+const dailyQuestModel = require('../models/dailyQuestModel');
 const { transferEthToSpecificAddress, withdraw } = require('../services/web3utlts');
 
 /**
@@ -62,9 +64,19 @@ const leaderboardBet = async (req, res) => {
     const leaderboardResults = await leaderboardModel.getLeaderboard(yearWeek);
     const userInfo = await userModel.formatTimeCoin(fromWalletAddress);
 
+    await dailyQuestModel.updateQuestProgress(fromWalletAddress, 3);
+    
+    const message = {
+      event: 'DailyQuestChange',
+      data: {
+      }
+    };
+
+    webSocketService.sendToPlayerMessage(fromWalletAddress, message);
+
     res.json({
       leaderboard: leaderboardResults,
-      userTimeCoin: userInfo?.AdjustedTimeCoin
+      userTimeCoin: userInfo.AdjustedTimeCoin
     });
 
   } catch (error) {

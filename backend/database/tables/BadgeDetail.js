@@ -18,10 +18,10 @@ const createBadgeDetailTable = async () => {
     INSERT IGNORE INTO BadgeDetail 
         (Name, DropRate, Effects)
         VALUES 
-        ('結算提升1%', 0.25, '{"value": 0.01, "type": "RewardBonus"}'),
-        ('提升2次每日挑戰', 0.25, '{"value": 2, "type": "BaseLeftOfPlay"}'),
-        ('傷害提升5%', 0.25, '{"value": 0.05, "type": "BaseAttackPower"}'),
-        ('抽獎費用降低1%', 0.25, '{"value": 0.01, "type": "DecraeseDrawFee"}');
+        ('結算獎勵提升 1 %', 0.25, '{"value": 0.01, "type": "RewardBonus"}'),
+        ('提升 2 次每日挑戰', 0.25, '{"value": 2, "type": "BaseLeftOfPlay"}'),
+        ('傷害提升 5 %', 0.25, '{"value": 0.05, "type": "BaseAttackPower"}'),
+        ('抽獎費用降低 1 %', 0.25, '{"value": 0.01, "type": "DecraeseDrawFee"}');
     `;
 
     await pool.execute(insertDataSql);

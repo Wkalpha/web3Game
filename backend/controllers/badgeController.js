@@ -4,6 +4,7 @@ const userInventoryModel = require('../models/userInventoryModel');
 const userBadgeModel = require('../models/userBadgeModel');
 const badgeTransferLogModel = require('../models/badgeTransferLogModel');
 const webSocketService = require('../services/webSocketService');
+const dailyQuestModel = require('../models/dailyQuestModel');
 
 /**
  * 取得所有徽章資訊
@@ -31,7 +32,7 @@ const getUserBadges = async (req, res) => {
  */
 const transferBadge = async (req, res) => {
   const { fromWalletAddress, toWalletAddress, badgeId, quantity } = req.body;
-  
+
   if (fromWalletAddress === toWalletAddress) {
     return res.json({ success: false, message: "不能轉移給自己" });
   }
@@ -134,6 +135,15 @@ const performDraw = async (walletAddress) => {
 
     // 5. 重查 UserBadge 將結果傳回前端
     const userBadgeInfo = await userBadgeModel.getUserBadge(walletAddress);
+
+    await dailyQuestModel.updateQuestProgress(walletAddress, 2);
+
+    const dailyQuestChangeMsg = {
+      event: 'DailyQuestChange',
+      data: {
+      }
+    };
+    webSocketService.sendToPlayerMessage(walletAddress, dailyQuestChangeMsg);
 
     return {
       tickets: leftTickets,

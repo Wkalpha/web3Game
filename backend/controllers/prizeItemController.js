@@ -7,7 +7,7 @@ const userDrawLogModel = require('../models/userDrawLogModel');
 const webSocketService = require('../services/webSocketService');
 const prizePoolModel = require('../models/prizePoolModel');
 const badgeModel = require('../models/badgeModel');
-
+const dailyQuestModel = require('../models/dailyQuestModel');
 
 /**
  * 取得抽獎池
@@ -83,16 +83,16 @@ const tenDrawPrize = async (req, res) => {
 
     // PoolName 找出 ItemId
     const itemId = await prizeItemModel.getPrizeItemIdByPoolName(poolName);
-    
+
     // 用 ItemId 去 UserInventory 找出對應數量
     const ticketQuantity = await userInventoryModel.getUserInventoryCount(walletAddress, itemId);
 
     let totalFee = EntryFee * Math.max(0, (10 - ticketQuantity)); // 10連抽所需的費用
 
     // 取得使用者抽獎費用降低徽章資訊
-    const decraeseDrawFeeBadgeInfo = await badgeModel.getBadgeEffect(walletAddress, 4);0.0
+    const decraeseDrawFeeBadgeInfo = await badgeModel.getBadgeEffect(walletAddress, 4); 0.0
 
-    totalFee =Math.round(totalFee * Math.max(0.5, (1 - decraeseDrawFeeBadgeInfo.quantity * decraeseDrawFeeBadgeInfo.effectValue))); // 最多折抵50%
+    totalFee = Math.round(totalFee * Math.max(0.5, (1 - decraeseDrawFeeBadgeInfo.quantity * decraeseDrawFeeBadgeInfo.effectValue))); // 最多折抵50%
 
     if (userInfo.timeCoin < totalFee) {
       return res.status(400).json({ error: 'Time Coin 不足' });
@@ -163,14 +163,24 @@ const tenDrawPrize = async (req, res) => {
     }
 
     // 8.通知玩家 Time Coin 變化
-    const message = {
+    const timeCoinChangeMsg = {
       event: 'TimeCoinChange',
       data: {
         walletAddress,
         userTimeCoin: userInfo.timeCoin
       }
     };
-    webSocketService.sendToPlayerMessage(walletAddress, message);
+    webSocketService.sendToPlayerMessage(walletAddress, timeCoinChangeMsg);
+
+    // 9.通知玩家每日任務變化
+    await dailyQuestModel.updateQuestProgress(walletAddress, 2);
+
+    const dailyQuestChangeMsg = {
+      event: 'DailyQuestChange',
+      data: {
+      }
+    };
+    webSocketService.sendToPlayerMessage(walletAddress, dailyQuestChangeMsg);
 
     userDrawCounter = await userDrawCounterModel.getDrawCounter(userInfo.userId, PrizeItemPoolId);
 
@@ -265,6 +275,7 @@ const performDraw = async (poolName, walletAddress, ticket) => {
   await userInventoryModel.insertUserInventory(userInfo.userId, prize.ItemId, prize.ItemValue);
   await userModel.deductTimeCoin(walletAddress, entryFee);
   userInfo.timeCoin = await userModel.getTimeCoin(walletAddress);
+
   const message = {
     event: 'TimeCoinChange',
     data: {
@@ -273,8 +284,21 @@ const performDraw = async (poolName, walletAddress, ticket) => {
     }
   };
   webSocketService.sendToPlayerMessage(walletAddress, message);
+
+  // 通知玩家每日任務變化
+  await dailyQuestModel.updateQuestProgress(walletAddress, 2);
+
+  const dailyQuestChangeMsg = {
+    event: 'DailyQuestChange',
+    data: {
+    }
+  };
+  webSocketService.sendToPlayerMessage(walletAddress, dailyQuestChangeMsg);
+
+
   await userDrawCounterModel.incrementDrawCounter(userInfo.userId, prizeItemPoolId);
   await userDrawLogModel.insertUserDrawLog(userInfo.userId, prizeItemPoolId, prize.ItemId, prize.BigPrize);
+  await dailyQuestModel.updateQuestProgress(walletAddress, 2);
 
   return {
     prize: {

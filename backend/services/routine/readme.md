@@ -3,6 +3,9 @@ pm2 start leaderboardScheduler.js --name leaderboard-scheduler
 leaderboardScheduler.js>要跑的程式
 --name abc>幫排程取個名字
 
+pm2 start mondayScheduler.js --name monday-scheduler
+pm2 start dailyScheduler.js --name daily-scheduler
+
 查看目前有的排程
 pm2 list
 

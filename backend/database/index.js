@@ -16,6 +16,8 @@ const createRewardLogTable = require('./tables/RewardLog');
 const createBadgeDetailTable = require('./tables/BadgeDetail');
 const createUserBadgeTable = require('./tables/UserBadge');
 const createBadgeTransferLogTable = require('./tables/BadgeTransferLog');
+const createDailyQuestsTable = require('./tables/DailyQuests');
+const createUserDailyProgressTable = require('./tables/UserDailyProgress');
 
 (async () => {
     try {
@@ -37,6 +39,8 @@ const createBadgeTransferLogTable = require('./tables/BadgeTransferLog');
         await createBadgeDetailTable();
         await createUserBadgeTable();
         await createBadgeTransferLogTable();
+        await createDailyQuestsTable();
+        await createUserDailyProgressTable();
 
         console.log('所有表、函數、事件初始化完成');
     } catch (err) {

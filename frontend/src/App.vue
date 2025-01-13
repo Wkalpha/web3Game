@@ -1,7 +1,7 @@
 <template>
 
   <div id="app">
-    <h1>Time Battle DApp</h1>
+    <h1>TickTock Battle DApp</h1>
 
     <div v-if="owner && wallet_connected && login">
       您好，創始者
@@ -22,6 +22,7 @@
       <div class="main-container">
         <!-- 左側：資訊展示區 -->
         <div class="info-section">
+          <DailyQuest :refreshKey="userDailyQuestKey" :wallet-address="walletAddress" />
           <p>錢包帳號地址: {{ formattedWalletAddress }}</p>
           <p>
             餘額:
@@ -84,6 +85,7 @@ import LeaderBoard from './components/ShowLeaderboard.vue';
 import PrizeItemPool from './components/PrizeItemPool.vue';
 import BadgeDisplay from "./components/BadgeDisplay.vue";
 import BadgeLottery from "./components/BadgeLottery.vue";
+import DailyQuest from "@/components/DailyQuest.vue";
 import Swal from 'sweetalert2';
 
 export default {
@@ -94,6 +96,7 @@ export default {
     PrizeItemPool,
     BadgeDisplay,
     BadgeLottery,
+    DailyQuest
   },
   data() {
     return {
@@ -126,7 +129,8 @@ export default {
       leaderboardPrizePoolTimeCoin: 0,
       isLoading: false, // 是否正在加載排行榜數據
       showText: '遊戲進行中',
-      drawBadgeKey: 0
+      drawBadgeKey: 0,
+      userDailyQuestKey: 0
     };
   },
   computed: {
@@ -564,7 +568,11 @@ export default {
         }
 
         if (ws.event === 'BadgeChange') {
-          this.drawBadgeKey += ws.data.drawBadgeKey;
+          this.drawBadgeKey += 1;
+        }
+
+        if (ws.event === 'DailyQuestChange') {
+          this.userDailyQuestKey += 1
         }
 
       };

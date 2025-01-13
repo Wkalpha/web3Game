@@ -8,6 +8,7 @@ const userInventoryModel = require('../models/userInventoryModel');
 const badgeModel = require('../models/badgeModel');
 const webSocketService = require('../services/webSocketService');
 const gameLevelModel = require('../models/gameLevelModel');
+const dailyQuestModel = require('../models/dailyQuestModel');
 const { v4: uuidv4 } = require('uuid');
 
 /**
@@ -271,6 +272,19 @@ const gameOver = async (gameId) => {
 
         webSocketService.sendToPlayerMessage(gameInfo.WalletAddress, timeCoinChangeMessage);
         webSocketService.sendToPlayerMessage(gameInfo.WalletAddress, gameResultMessage);
+
+        // 獲勝時，更新每日任務進度
+        if(gameResult.winOrLose === 'win'){
+            await dailyQuestModel.updateQuestProgress(userInfo.WalletAddress, 1);
+        }
+
+        const dailyQuestChangeMsg = {
+            event: 'DailyQuestChange',
+            data: {
+            }
+        };
+        webSocketService.sendToPlayerMessage(gameInfo.WalletAddress, dailyQuestChangeMsg);
+
 
     } catch (err) {
         console.error('遊戲結束但發生錯誤', err);
