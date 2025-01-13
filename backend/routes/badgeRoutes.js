@@ -7,5 +7,6 @@ const badgeController = require('../controllers/badgeController');
 router.get('/get-badges', badgeController.getBadges);
 router.post('/draw-badge', badgeController.drawPrize);
 router.post('/get-user-badge', badgeController.getUserBadges);
+router.post('/transfer-badge', badgeController.transferBadge);
 
 module.exports = router;

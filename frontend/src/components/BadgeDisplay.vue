@@ -5,7 +5,7 @@
       <div v-for="badge in userBadges" :key="badge.BadgeId" class="badge-item">
         <div class="button-group">
           <button>效果</button>
-          <button>轉移</button>
+          <button @click="showTransferDialog(badge)">轉移</button>
         </div>
         <img :src="getBadgeImage(badge.BadgeId)" :alt="'Badge ' + badge.BadgeId" class="badge-image" />
       </div>
@@ -16,6 +16,7 @@
 
 <script>
 import axios from 'axios';
+import Swal from "sweetalert2";
 
 export default {
   props: {
@@ -23,16 +24,16 @@ export default {
       type: String,
       required: true
     },
+    refreshKey: Number,
+    userTimeCoin: Number
+  },
+  watch: {
+    async refreshKey() {
+      await this.fetchBadges();
+    }
   },
   async mounted() {
-    await axios.post('http://localhost:3000/get-user-badge', { walletAddress: this.walletAddress })
-      .then(rs => {
-        this.userBadges = rs.data.badges; // 確保正確存取陣列
-        console.log(this.userBadges);
-      })
-      .catch(err => {
-        console.error("取得徽章時發生錯誤:", err);
-      });
+    await this.fetchBadges();
   },
   data() {
     return {
@@ -42,6 +43,75 @@ export default {
   methods: {
     getBadgeImage(badgeId) {
       return `/images/badges/${badgeId}.png`; // 直接對應 public 目錄中的圖片
+    },
+    async fetchBadges() {
+      try {
+        const response = await axios.post('http://localhost:3000/get-user-badge', { walletAddress: this.walletAddress });
+        this.userBadges = response.data.badges;
+      } catch (error) {
+        console.error("取得徽章時發生錯誤:", error);
+      }
+    },
+    async showTransferDialog(badge) {
+      console.log(badge)
+      const { value: formValues } = await Swal.fire({
+        title: "轉移徽章",
+        html:
+          '<input id="walletAddress" class="swal2-input" placeholder="輸入對方的錢包地址">' +
+          `<input id="quantity" type="number" class="swal2-input" placeholder="輸入數量 (最多 ${badge.Quantity})">`,
+        focusConfirm: false,
+        preConfirm: () => {
+          return {
+            toWalletAddress: document.getElementById("walletAddress").value,
+            quantity: parseInt(document.getElementById("quantity").value, 10)
+          };
+        }
+      });
+
+      if (!formValues) return;
+
+      const { toWalletAddress, quantity } = formValues;
+
+      // **前端檢查**
+      if (!toWalletAddress || quantity <= 0) {
+        Swal.fire("錯誤", "請輸入有效的錢包地址與數量", "error");
+        return;
+      }
+
+      if (toWalletAddress === this.walletAddress) {
+        Swal.fire("錯誤", "不能轉移給自己", "error");
+        return;
+      }
+      if (quantity > badge.Quantity) {
+        Swal.fire("錯誤", "數量超過你擁有的徽章數量", "error");
+        return;
+      }
+      if (this.userTimeCoin < 5) {
+        Swal.fire("錯誤", "你的 TC 低於 5，無法進行轉移", "error");
+        return;
+      }
+
+      // 發送 API 請求
+      try {
+        const payload = {
+          fromWalletAddress: this.walletAddress,
+          toWalletAddress,
+          badgeId: badge.BadgeId,
+          quantity
+        }
+
+        const response = await axios.post("http://localhost:3000/transfer-badge", payload);
+
+        if (response.data.success) {
+          Swal.fire("成功", "徽章已成功轉移!", "success");
+          await this.fetchBadges();
+        } else {
+          Swal.fire("錯誤", response.data.message, "error");
+        }
+      } catch (error) {
+        console.error("轉移時發生錯誤:", error);
+        Swal.fire("錯誤", "轉移失敗，請稍後再試", "error");
+      }
     }
   }
 };

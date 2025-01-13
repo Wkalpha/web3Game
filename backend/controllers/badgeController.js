@@ -2,6 +2,8 @@ const badgeModel = require('../models/badgeModel');
 const userModel = require('../models/userModel');
 const userInventoryModel = require('../models/userInventoryModel');
 const userBadgeModel = require('../models/userBadgeModel');
+const badgeTransferLogModel = require('../models/badgeTransferLogModel');
+const webSocketService = require('../services/webSocketService');
 
 /**
  * 取得所有徽章資訊
@@ -21,6 +23,63 @@ const getUserBadges = async (req, res) => {
   const result = await badgeModel.getUserBadges(walletAddress);
   res.json({
     badges: result
+  });
+}
+
+/**
+ * 轉移徽章
+ */
+const transferBadge = async (req, res) => {
+  const { fromWalletAddress, toWalletAddress, badgeId, quantity } = req.body;
+  
+  if (fromWalletAddress === toWalletAddress) {
+    return res.json({ success: false, message: "不能轉移給自己" });
+  }
+
+  const fromUser = await userModel.getUser(fromWalletAddress);
+  const toUser = await userModel.getUser(toWalletAddress);
+
+  if (!fromUser || fromUser.AdjustedTimeCoin < 5) {
+    return res.json({ success: false, message: "你的 TC 低於 5，無法轉移" });
+  }
+  if (!toUser) {
+    return res.json({ success: false, message: "對方地址不存在" });
+  }
+
+  let fromBadge = await userBadgeModel.getUserBadge(fromWalletAddress);
+
+  if (!fromBadge || fromBadge.Quantity < quantity) {
+    return res.json({ success: false, message: "你沒有足夠的徽章" });
+  }
+
+  // 扣除傳送者的徽章
+  await badgeModel.updateUserBadge(fromWalletAddress, badgeId, -quantity);
+
+  // 增加接收者的徽章
+  await badgeModel.insertIntoUserBadge(toWalletAddress, badgeId, quantity);
+
+  // Log
+  await badgeTransferLogModel.insert(fromWalletAddress, toWalletAddress, quantity, badgeId);
+
+  // 扣 5 TC
+  await userModel.deductTimeCoin(fromWalletAddress, 5);
+
+  // 重查 fromUserBadge
+  fromBadge = await userBadgeModel.getUserBadge(fromWalletAddress);
+
+  const websocketMsg = {
+    event: 'BadgeChange',
+    data: {
+      walletAddress: fromWalletAddress,
+      drawBadgeKey: 1
+    }
+  };
+
+  webSocketService.sendToPlayerMessage(toWalletAddress, websocketMsg);
+
+  res.json({
+    success: true,
+    badges: fromBadge
   });
 }
 
@@ -88,5 +147,6 @@ module.exports = {
   drawPrize, // 單次抽獎
   performDraw,
   getBadges,
-  getUserBadges
+  getUserBadges,
+  transferBadge
 };

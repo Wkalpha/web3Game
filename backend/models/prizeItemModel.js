@@ -31,7 +31,7 @@ const getItemInfo = async (itemId) => {
     `;
 
     try {
-        const [rows] = await pool.execute(sql,[itemId]);
+        const [rows] = await pool.execute(sql, [itemId]);
         return rows[0];
     } catch (error) {
         console.error('查詢 道具資訊 發生錯誤:', error);
@@ -39,7 +39,21 @@ const getItemInfo = async (itemId) => {
     }
 };
 
+/**
+ * 根據獎池名稱撈出獎品Id
+ */
+const getPrizeItemIdByPoolName = async (poolName) => {
+    const sql = `
+        SELECT ItemId FROM PrizeItem 
+        WHERE JSON_UNQUOTE(JSON_EXTRACT(Effects, '$.type')) = ?
+    `;
+
+    const [rows] = await pool.execute(sql, [poolName]);
+    return rows.length > 0 ? rows[0].ItemId : null; // 只取第一個結果
+};
+
 module.exports = {
     queryPrizeItem,
-    getItemInfo
+    getItemInfo,
+    getPrizeItemIdByPoolName
 };

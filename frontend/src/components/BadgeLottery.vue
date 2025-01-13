@@ -37,10 +37,7 @@ export default {
     }
   },
   async mounted() {
-    await axios.post('http://localhost:3000/get-inventory', { walletAddress: this.walletAddress }).then(rs => {
-      const inventoryData = rs.data;
-      this.tickets = inventoryData.inventory.find(item => item.ItemId === 25)?.Quantity ?? 0;
-    })
+    await this.getInvnetory();
   },
   data() {
     return {
@@ -51,7 +48,14 @@ export default {
     };
   },
   methods: {
+    async getInvnetory() {
+      await axios.post('http://localhost:3000/get-inventory', { walletAddress: this.walletAddress }).then(rs => {
+        const inventoryData = rs.data;
+        this.tickets = inventoryData.inventory.find(item => item.ItemId === 25)?.Quantity ?? 0;
+      })
+    },
     async openPrizeModal() {
+      await this.getInvnetory();
       this.showModal = true;
       await this.getBadge();
     },
@@ -77,6 +81,8 @@ export default {
     },
     async drawPrize() {
       try {
+        if (this.tickets <= 0) return;
+
         const payload = {
           walletAddress: this.walletAddress
         };
@@ -114,6 +120,8 @@ export default {
               icon: 'success',
               confirmButtonText: '確定',
             });
+            // 發送事件通知父組件
+            this.$emit('draw-badge');
           },
         });
       } catch (error) {

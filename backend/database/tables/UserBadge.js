@@ -3,11 +3,11 @@ const pool = require('../pool');
 const createUserBadgeTable = async () => {
   const createTableSql = `
     CREATE TABLE IF NOT EXISTS UserBadge (
-        WalletAddress VARCHAR(255) DEFAULT NULL,
-        BadgeId INT DEFAULT NULL,
+        WalletAddress VARCHAR(255),
+        BadgeId INT,
         Quantity INT DEFAULT 0,
         UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (WalletAddress, BadgeId) -- 添加複合唯一約束
+        PRIMARY KEY (WalletAddress, BadgeId) -- 設定 WalletAddress 和 BadgeId 為複合主鍵
     )
   `;
   await pool.execute(createTableSql);

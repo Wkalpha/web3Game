@@ -42,7 +42,7 @@
           </div>
 
           <!-- 徽章展示區 -->
-          <BadgeDisplay :wallet-address="walletAddress" />
+          <BadgeDisplay :wallet-address="walletAddress" :refreshKey="drawBadgeKey" :user-time-coin="userInfo.timeCoin"/>
         </div>
 
         <!-- 右側：功能操作區 -->
@@ -54,7 +54,7 @@
           <PrizeItemPool :wallet-address="walletAddress" :user-time-coin="userInfo.timeCoin" />
 
           <!-- 抽徽章 -->
-          <BadgeLottery :wallet-address="walletAddress" />
+          <BadgeLottery :wallet-address="walletAddress" @draw-badge="handleDrawBadge" />
           
         </div>
       </div>
@@ -125,7 +125,8 @@ export default {
       leaderboardPlayers: [], // 從 API 獲取的排行榜數據
       leaderboardPrizePoolTimeCoin: 0,
       isLoading: false, // 是否正在加載排行榜數據
-      showText: '遊戲進行中'
+      showText: '遊戲進行中',
+      drawBadgeKey: 0
     };
   },
   computed: {
@@ -290,6 +291,9 @@ export default {
     handleBetComplete({ newUserTimeCoin, newLeaderboard }) {
       this.userInfo.timeCoin = newUserTimeCoin;
       this.leaderboardPlayers = newLeaderboard;
+    },
+    handleDrawBadge(){
+      this.drawBadgeKey += 1
     },
     async handleGameStart({ leftOfPlay, timeCoin }) {
       this.userInfo.timeCoin = timeCoin;
@@ -557,6 +561,10 @@ export default {
 
         if (ws.event === 'GameResult') {
           this.showText = ws.data.showText;
+        }
+
+        if (ws.event === 'BadgeChange') {
+          this.drawBadgeKey += ws.data.drawBadgeKey;
         }
 
       };

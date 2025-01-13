@@ -1,19 +1,43 @@
 const pool = require('../database/pool');
 
 /**
- * 取得徽章資訊
+ * 取得使用者徽章數量
  * @returns 
  */
 const getUserBadges = async (walletAddress) => {
     const sql = `
-        SELECT BadgeId
+        SELECT BadgeId, Quantity
         FROM UserBadge
-        WHERE WalletAddress = ?
+        WHERE WalletAddress = ? AND Quantity > 0
     `;
 
-    const [rows] = await pool.execute(sql,[walletAddress]);
-    return rows;
-}
+    const [rows] = await pool.execute(sql, [walletAddress]);
+
+    // 如果沒有資料，回傳空陣列
+    return rows.length > 0 ? rows : [];
+};
+
+/**
+ * 取得使用者傷害徽章資訊
+ */
+const getBadgeEffect = async (walletAddress, badgeId) => {
+    const query = `
+        SELECT 
+            ub.Quantity, 
+            JSON_UNQUOTE(JSON_EXTRACT(bd.Effects, '$.value')) AS effectValue
+        FROM UserBadge ub
+        JOIN BadgeDetail bd ON ub.BadgeId = bd.Id
+        WHERE ub.WalletAddress = ? AND ub.BadgeId = ?;
+    `;
+
+    const [rows] = await pool.execute(query, [walletAddress, badgeId]);
+    if (rows.length > 0) {
+        const { Quantity, effectValue } = rows[0];
+        return { quantity: Quantity, effectValue: parseFloat(effectValue) };
+    } else {
+        return { quantity: 0, effectValue: 0 };
+    }
+};
 
 /**
  * 取得徽章資訊
@@ -48,11 +72,31 @@ const insertIntoUserBadge = async (walletAddress, badgeId, quantity) => {
         console.error("Database error:", error);
         throw error; // 可以選擇拋出錯誤給上層處理
     }
+}
+
+/**
+ * 更新到使用者的徽章
+ * @returns 
+ */
+const updateUserBadge = async (walletAddress, badgeId, quantity) => {
+    try {
+        const sql = `
+            UPDATE UserBadge
+            SET Quantity = Quantity + ?
+            WHERE WalletAddress = ? AND BadgeId = ?
+        `;
+        await pool.execute(sql, [quantity, walletAddress, badgeId]);
+    } catch (error) {
+        console.error("Database error:", error);
+        throw error; // 可以選擇拋出錯誤給上層處理
+    }
 
 }
 
 module.exports = {
     getBadges,
     insertIntoUserBadge,
-    getUserBadges
+    getUserBadges,
+    getBadgeEffect,
+    updateUserBadge
 };

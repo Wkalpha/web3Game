@@ -51,7 +51,7 @@ const createPrizeItemTable = async () => {
       (3, '永久結算傷害提升0.5%', 'PermanentBuff', 1, 'Epic', 0.05, 1, '{"value": 0.005, "type": "BaseAttackPower"}'),
       (3, '永久結算獎勵提升0.5%', 'PermanentBuff', 1, 'Epic', 0.05, 1, '{"value": 0.005, "type": "RewardMultiplier"}'),
       (3, '永久提高每日挑戰次數1次', 'PermanentBuff', 1, 'Epic', 0.05, 1, '{"value": 1, "type": "BaseLeftOfPlay"}'),
-      (3, '資產抽獎券', 'Property', 1, 'Epic', 0.001, 1, '{"value": 1, "type": "Property"}');
+      (3, '徽章抽獎券', 'Property', 1, 'Epic', 0.001, 1, '{"value": 1, "type": "Property"}');
     `;
 
   await pool.execute(insertDataSql);

@@ -168,8 +168,17 @@ export default {
       }
       this.betAmountError = '';
 
+      await axios.post('http://localhost:3000/get-inventory', {walletAddress:this.walletAddress}).then(rs=>{
+        this.inventory = rs.data.inventory.filter(item => item.ItemType === 'DamageBuff' || item.ItemType === 'FinalBuff' || item.ItemType === 'FunctionalBuff');
+      })
+
+      if (this.inventory.length == 0){
+        this.startGame();
+        return;
+      }
+
       // 如果未勾選 "不使用道具"，則彈出選擇道具的 Modal
-      if (!this.useNoItem) {
+      if (!this.useNoItem && this.inventory.length > 0) {
         this.isModalVisible = true;
         return;
       }

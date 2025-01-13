@@ -15,6 +15,7 @@ const createGameLevel = require('./tables/GameLevel');
 const createRewardLogTable = require('./tables/RewardLog');
 const createBadgeDetailTable = require('./tables/BadgeDetail');
 const createUserBadgeTable = require('./tables/UserBadge');
+const createBadgeTransferLogTable = require('./tables/BadgeTransferLog');
 
 (async () => {
     try {
@@ -35,6 +36,7 @@ const createUserBadgeTable = require('./tables/UserBadge');
         await createRewardLogTable();
         await createBadgeDetailTable();
         await createUserBadgeTable();
+        await createBadgeTransferLogTable();
 
         console.log('所有表、函數、事件初始化完成');
     } catch (err) {

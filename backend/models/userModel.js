@@ -124,7 +124,7 @@ const findOrAdd = async (walletAddress) => {
  * 查詢玩家資訊
  */
 const getUser = async (walletAddress) => {
-    const [result] = await pool.execute(`SELECT Id FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
+    const [result] = await pool.execute(`SELECT *, FLOOR(TimeCoin) AS AdjustedTimeCoin FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
 
     return result[0];
 }
@@ -133,7 +133,7 @@ const getUser = async (walletAddress) => {
  * 查詢玩家基礎攻擊力、結算獎勵...等基礎資訊
  */
 const getBaseInfo = async (walletAddress) => {
-    const [result] = await pool.execute(`SELECT BaseAttackPower, RewardMultiplier, BaseLeftOfPlay FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
+    const [result] = await pool.execute(`SELECT WalletAddress, BaseAttackPower, RewardMultiplier, BaseLeftOfPlay FROM UserInfo WHERE WalletAddress = ?`, [walletAddress]);
 
     return result[0];
 }

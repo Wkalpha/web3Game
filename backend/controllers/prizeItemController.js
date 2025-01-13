@@ -6,6 +6,7 @@ const userInventoryModel = require('../models/userInventoryModel');
 const userDrawLogModel = require('../models/userDrawLogModel');
 const webSocketService = require('../services/webSocketService');
 const prizePoolModel = require('../models/prizePoolModel');
+const badgeModel = require('../models/badgeModel');
 
 
 /**
@@ -80,8 +81,19 @@ const tenDrawPrize = async (req, res) => {
     // 2. 獲取玩家資訊
     const userInfo = await userModel.findOrAdd(walletAddress);
 
-    // 3. 檢查是否有足夠的 Time Coin
-    const totalFee = EntryFee * 10; // 10連抽所需的費用
+    // PoolName 找出 ItemId
+    const itemId = await prizeItemModel.getPrizeItemIdByPoolName(poolName);
+    
+    // 用 ItemId 去 UserInventory 找出對應數量
+    const ticketQuantity = await userInventoryModel.getUserInventoryCount(walletAddress, itemId);
+
+    let totalFee = EntryFee * Math.max(0, (10 - ticketQuantity)); // 10連抽所需的費用
+
+    // 取得使用者抽獎費用降低徽章資訊
+    const decraeseDrawFeeBadgeInfo = await badgeModel.getBadgeEffect(walletAddress, 4);0.0
+
+    totalFee =Math.round(totalFee * Math.max(0.5, (1 - decraeseDrawFeeBadgeInfo.quantity * decraeseDrawFeeBadgeInfo.effectValue))); // 最多折抵50%
+
     if (userInfo.timeCoin < totalFee) {
       return res.status(400).json({ error: 'Time Coin 不足' });
     }
@@ -199,7 +211,9 @@ const performDraw = async (poolName, walletAddress, ticket) => {
     throw new Error(`No pool found for PoolName: ${poolName}`);
   }
 
-  const entryFee = ticket ? 0 : filtered[0].EntryFee;
+  // 取得使用者抽獎費用降低徽章資訊
+  const decraeseDrawFeeBadgeInfo = await badgeModel.getBadgeEffect(walletAddress, 4);
+  const entryFee = ticket ? 0 : Math.max(0, Math.round(filtered[0].EntryFee * Math.max(0.5, (1 - decraeseDrawFeeBadgeInfo.quantity * decraeseDrawFeeBadgeInfo.effectValue)))); // 如果使用 Ticket 則不用費用
   const guaranteeDraw = filtered[0].GuaranteeDraw;
   const prizeItemPoolId = filtered[0].PrizeItemPoolId;
 

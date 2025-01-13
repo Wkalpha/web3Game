@@ -5,6 +5,7 @@ const userModel = require('../models/userModel');
 const gameLogModel = require('../models/gameLogModel');
 const gameInfoModel = require('../models/gameInfoModel');
 const userInventoryModel = require('../models/userInventoryModel');
+const badgeModel = require('../models/badgeModel');
 const webSocketService = require('../services/webSocketService');
 const gameLevelModel = require('../models/gameLevelModel');
 const { v4: uuidv4 } = require('uuid');
@@ -153,7 +154,11 @@ const endTimer = async (req, res) => {
 
         // 取得 UserInfo 資訊
         const userInfo = await userModel.getBaseInfo(currentRoundInfo.WalletAddress);
-        let scores = Math.max(0, Math.floor((1 - difference / 10) * 10)) * parseFloat(userInfo.BaseAttackPower);
+
+        // 取得使用者傷害徽章資訊
+        const damageBadgeInfo = await badgeModel.getBadgeEffect(userInfo.WalletAddress, 3);
+
+        let scores = Math.max(0, Math.floor((1 - difference / 10) * 10)) * (parseFloat(userInfo.BaseAttackPower) + (damageBadgeInfo.quantity * damageBadgeInfo.effectValue));
 
         const gameInfo = await gameInfoModel.queryGameInfoByGameId(gameId);
 
@@ -216,7 +221,11 @@ const gameOver = async (gameId) => {
         // 取得 UserInfo 資訊
         const userInfo = await userModel.getBaseInfo(gameInfo.WalletAddress);
 
-        userTimeCoinOdds = Math.round(userTimeCoinOdds * (1 + parseFloat(gameInfo.RewardMultiplier)) * parseFloat(userInfo.RewardMultiplier));
+        // 取得使用者結算獎勵提升徽章資訊
+        const rewardBonusBadgeInfo = await badgeModel.getBadgeEffect(userInfo.WalletAddress, 1);
+
+        // 關卡倍率 * (1 + 本局遊戲的倍率(會被道具影響)) * 玩家基礎結算獎勵倍率(初始1) * (1 + 結算徽章倍率(數量會影響))
+        userTimeCoinOdds = Math.round(userTimeCoinOdds * (1 + parseFloat(gameInfo.RewardMultiplier)) * parseFloat(userInfo.RewardMultiplier) * (1 + rewardBonusBadgeInfo.quantity * rewardBonusBadgeInfo.effectValue));
 
         // 1. 更新玩家的餘額
         await userModel.updateUserTimeCoinAfterGameOver(gameInfo.WalletAddress, gameInfo.BetAmount, userTimeCoinOdds);
