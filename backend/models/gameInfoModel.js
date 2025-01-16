@@ -80,7 +80,6 @@ const forceEndGame = async (walletAddress) => {
         );
 
         if (!gameInfo.length) {
-            console.warn(`找不到進行中的遊戲，walletAddress: ${walletAddress}`);
             return;
         }
 

@@ -104,7 +104,7 @@ export default {
                 poolName: poolName,
                 walletAddress: this.walletAddress
             }
-            await axios.post('http://localhost:3000/get-prize-item', payload).then(rs => {
+            await axios.post(`${process.env.VUE_APP_API_URL}/get-prize-item`, payload).then(rs => {
                 this.prizeItems = rs.data.prizeItems;
                 this.bigPrize = rs.data.bigPrize;
                 this.guaranteeDraw = rs.data.guaranteeDraw;
@@ -112,7 +112,7 @@ export default {
             });
         },
         async getPrizeItemPool() {
-            await axios.get('http://localhost:3000/get-prize-item-pool').then(rs => {
+            await axios.get(`${process.env.VUE_APP_API_URL}/get-prize-item-pool`).then(rs => {
                 this.prizeItemPools = rs.data.prizeItemPool;
             });
         },
@@ -141,7 +141,7 @@ export default {
                         Swal.showLoading();
 
                         // 3. 發送請求，模擬等待後端返回
-                        const response = await axios.post('http://localhost:3000/draw-prize', payload);
+                        const response = await axios.post(`${process.env.VUE_APP_API_URL}/draw-prize`, payload);
                         const finalPrize = response.data.prize;
                         this.userDrawCounter = response.data.userDrawCounter;
 
@@ -194,7 +194,7 @@ export default {
                         Swal.showLoading();
 
                         // 3. 發送請求，模擬等待後端返回
-                        const response = await axios.post('http://localhost:3000/ten-draw-prize', payload);
+                        const response = await axios.post(`${process.env.VUE_APP_API_URL}/ten-draw-prize`, payload);
                         const finalPrize = response.data.prizes;
                         this.userDrawCounter = response.data.userDrawCounter;
 

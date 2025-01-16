@@ -41,7 +41,7 @@ export default {
                 const payload = {
                     walletAddress: this.walletAddress
                 }
-                const response = await axios.post('http://localhost:3000/get-user-base-info', payload);
+                const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-user-base-info`, payload);
 
                 if (response.status !== 200) {
                     throw new Error("無法取得角色資訊");

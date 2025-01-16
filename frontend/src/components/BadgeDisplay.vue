@@ -46,7 +46,7 @@ export default {
     },
     async fetchBadges() {
       try {
-        const response = await axios.post('http://localhost:3000/get-user-badge', { walletAddress: this.walletAddress });
+        const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-user-badge`, { walletAddress: this.walletAddress });
         this.userBadges = response.data.badges;
       } catch (error) {
         console.error("取得徽章時發生錯誤:", error);
@@ -109,7 +109,7 @@ export default {
           quantity
         }
 
-        const response = await axios.post("http://localhost:3000/transfer-badge", payload);
+        const response = await axios.post(`${process.env.VUE_APP_API_URL}/transfer-badge`, payload);
 
         if (response.data.success) {
           Swal.fire("成功", "徽章已成功轉移!", "success");

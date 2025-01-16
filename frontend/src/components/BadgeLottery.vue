@@ -49,7 +49,7 @@ export default {
   },
   methods: {
     async getInvnetory() {
-      await axios.post('http://localhost:3000/get-inventory', { walletAddress: this.walletAddress }).then(rs => {
+      await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, { walletAddress: this.walletAddress }).then(rs => {
         const inventoryData = rs.data;
         this.tickets = inventoryData.inventory.find(item => item.ItemId === 25)?.Quantity ?? 0;
       })
@@ -75,7 +75,7 @@ export default {
       this.showModal = false;
     },
     async getBadge() {
-      await axios.get('http://localhost:3000/get-badges').then(rs => {
+      await axios.get(`${process.env.VUE_APP_API_URL}/get-badges`).then(rs => {
         this.badges = rs.data.badges;
       });
     },
@@ -105,7 +105,7 @@ export default {
             Swal.showLoading();
 
             // 3. 發送請求
-            const response = await axios.post('http://localhost:3000/draw-badge', payload);
+            const response = await axios.post(`${process.env.VUE_APP_API_URL}/draw-badge`, payload);
             this.userBadges = response.data;
             this.tickets = response.data.tickets;
             const prize = response.data.prize;

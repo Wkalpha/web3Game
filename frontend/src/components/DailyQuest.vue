@@ -44,7 +44,7 @@ export default {
     methods: {
         async fetchUserDailyQuest() {
             try {
-                const response = await axios.post('http://localhost:3000/daily-quests', { walletAddress: this.walletAddress });
+                const response = await axios.post(`${process.env.VUE_APP_API_URL}/daily-quests`, { walletAddress: this.walletAddress });
                 this.quests = response.data;
             } catch (error) {
                 console.error("取得每日任務時發生錯誤:", error);
@@ -57,7 +57,7 @@ export default {
             }
 
             try {
-                await axios.post('http://localhost:3000/daily-quests/claim', payload)
+                await axios.post(`${process.env.VUE_APP_API_URL}/daily-quests/claim`, payload)
                 await this.fetchUserDailyQuest(); // ✅ 強制重新取得資料
             } catch (error) {
                 console.error("領取獎勵時發生錯誤:", error);

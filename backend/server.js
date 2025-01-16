@@ -33,17 +33,21 @@ app.use(globalLimiter);
 app.use(cors());
 app.use(express.json());
 
+app.get('/', (req, res) => {
+  res.send('Server is running!');
+});
+
 // 路由掛載
-app.use('/', userRoutes);
-app.use('/', prizePoolRoutes);
-app.use('/', leaderboardRoutes);
-app.use('/', gameRoutes);
-app.use('/', prizeItemPoolRoutes);
-app.use('/', prizeItemRoutes);
-app.use('/', userInventoryRoutes);
-app.use('/', userDrawLogRoutes);
-app.use('/', badgeRoutes);
-app.use('/', dailyQuestRoutes);
+app.use('/api', userRoutes);
+app.use('/api', prizePoolRoutes);
+app.use('/api', leaderboardRoutes);
+app.use('/api', gameRoutes);
+app.use('/api', prizeItemPoolRoutes);
+app.use('/api', prizeItemRoutes);
+app.use('/api', userInventoryRoutes);
+app.use('/api', userDrawLogRoutes);
+app.use('/api', badgeRoutes);
+app.use('/api', dailyQuestRoutes);
 
 
 // 監聽合約事件
@@ -52,6 +56,4 @@ handleEthTransferred();
 
 // 啟動伺服器
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port 3000`));

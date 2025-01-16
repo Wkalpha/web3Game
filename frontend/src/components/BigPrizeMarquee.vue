@@ -29,7 +29,7 @@ export default {
     methods: {
         async fetchMessages() {
             try {
-                const response = await axios.get('http://localhost:3000/get-big-prize-log');
+                const response = await axios.get(`${process.env.VUE_APP_API_URL}/get-big-prize-log`);
                 if (Array.isArray(response.data)) {
                     this.messages = response.data;
                     this.show = this.messages.length > 0; // 如果有消息就顯示

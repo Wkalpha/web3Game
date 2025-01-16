@@ -67,7 +67,7 @@ export default {
                 walletAddress: this.walletAddress,
                 itemId
             };
-            await axios.post('http://localhost:3000/use-item', payload).then(rs => {
+            await axios.post(`${process.env.VUE_APP_API_URL}/use-item`, payload).then(rs => {
                 if (itemType == 'Ticket') {
                     Swal.fire({
                         title: '抽獎中',
@@ -102,7 +102,7 @@ export default {
             };
 
             try {
-                const response = await axios.post('http://localhost:3000/get-inventory', payload);
+                const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, payload);
                 this.inventory = response.data.inventory || [];
                 this.$emit('get-inventory', this.inventory);
             } catch (error) {

@@ -168,7 +168,7 @@ export default {
       }
       this.betAmountError = '';
 
-      await axios.post('http://localhost:3000/get-inventory', {walletAddress:this.walletAddress}).then(rs=>{
+      await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, {walletAddress:this.walletAddress}).then(rs=>{
         this.inventory = rs.data.inventory.filter(item => item.ItemType === 'DamageBuff' || item.ItemType === 'FinalBuff' || item.ItemType === 'FunctionalBuff');
       })
 
@@ -204,7 +204,7 @@ export default {
         itemId: this.selectedItem ? this.selectedItem.ItemId : null, // 傳遞選中的道具
       }
 
-      await axios.post('http://localhost:3000/update-balance-when-game-start', payload).then(rs => {
+      await axios.post(`${process.env.VUE_APP_API_URL}/update-balance-when-game-start`, payload).then(rs => {
         this.startCountdown();
         this.gameId = rs.data.gameId;
         this.gameRound = rs.data.gameRound;
@@ -220,7 +220,7 @@ export default {
         gameId: this.gameId,
         walletAddress: this.walletAddress
       }
-      await axios.post('http://localhost:3000/getTargetTime', payload).then(rs => {
+      await axios.post(`${process.env.VUE_APP_API_URL}/getTargetTime`, payload).then(rs => {
         this.targetTime = rs.data.targetTime;
       });
 
@@ -231,7 +231,7 @@ export default {
       const payload = {
         gameId: this.gameId
       }
-      await axios.post('http://localhost:3000/start-timer', payload);
+      await axios.post(`${process.env.VUE_APP_API_URL}/start-timer`, payload);
     },
     async stopTiming() {
       this.timing = false;
@@ -240,7 +240,7 @@ export default {
         gameId: this.gameId
       }
 
-      await axios.post('http://localhost:3000/end-timer', payload).then(rs => {
+      await axios.post(`${process.env.VUE_APP_API_URL}/end-timer`, payload).then(rs => {
         this.totalScore += rs.data.scores;
         this.elapsedTime = rs.data.elapsedTime;
       })

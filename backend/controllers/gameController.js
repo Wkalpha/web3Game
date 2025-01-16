@@ -226,7 +226,12 @@ const gameOver = async (gameId) => {
         const rewardBonusBadgeInfo = await badgeModel.getBadgeEffect(userInfo.WalletAddress, 1);
 
         // 關卡倍率 * (1 + 本局遊戲的倍率(會被道具影響)) * 玩家基礎結算獎勵倍率(初始1) * (1 + 結算徽章倍率(數量會影響))
-        userTimeCoinOdds = Math.round(userTimeCoinOdds * (1 + parseFloat(gameInfo.RewardMultiplier)) * parseFloat(userInfo.RewardMultiplier) * (1 + rewardBonusBadgeInfo.quantity * rewardBonusBadgeInfo.effectValue));
+        // console.log('關卡倍率:',userTimeCoinOdds)
+        // console.log('本局遊戲的倍率(會被道具影響):',(1 + parseFloat(gameInfo.RewardMultiplier)))
+        // console.log('玩家基礎結算獎勵倍率(初始1):',parseFloat(userInfo.RewardMultiplier))
+        // console.log('(1 + 結算徽章倍率(數量會影響):',(1 + rewardBonusBadgeInfo.quantity * rewardBonusBadgeInfo.effectValue))
+        // console.log(userTimeCoinOdds * (1 + parseFloat(gameInfo.RewardMultiplier)) * parseFloat(userInfo.RewardMultiplier) * (1 + rewardBonusBadgeInfo.quantity * rewardBonusBadgeInfo.effectValue))
+        userTimeCoinOdds = userTimeCoinOdds * (1 + parseFloat(gameInfo.RewardMultiplier)) * parseFloat(userInfo.RewardMultiplier) * (1 + rewardBonusBadgeInfo.quantity * rewardBonusBadgeInfo.effectValue);
 
         // 1. 更新玩家的餘額
         await userModel.updateUserTimeCoinAfterGameOver(gameInfo.WalletAddress, gameInfo.BetAmount, userTimeCoinOdds);
@@ -247,7 +252,7 @@ const gameOver = async (gameId) => {
         await leaderboardModel.upsertLeaderboardAfterGameOver(gameInfo.WalletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
 
         // 5. 更新 GameInfo
-        const profit = gameInfo.BetAmount * userTimeCoinOdds;
+        const profit = Math.round(gameInfo.BetAmount * userTimeCoinOdds);
         await gameInfoModel.updateWhenGameOver(gameId, gameResult.winOrLose, profit, totalScore);
 
         // websocket

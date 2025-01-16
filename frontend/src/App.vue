@@ -11,6 +11,15 @@
     <p v-if="wallet_connected && login">合約地址: {{ contractAddress }}</p>
     <button v-if="!login" @click="connectWallet" :disabled="wallet_connected">連結錢包</button>
 
+    <!-- 教學影片連結 -->
+    <div v-if="!login" class="tutorial">
+      <p>不熟悉 Web3？查看我們的教學影片！</p>
+      <a href="https://www.youtube.com/watch?v=XXXXXX" target="_blank">📺 如何建立 MetaMask 錢包</a>
+      <a href="https://www.youtube.com/watch?v=YYYYYY" target="_blank">💰 如何獲得 Time Coin (TC)</a>
+      <a href="https://www.youtube.com/watch?v=ZZZZZZ" target="_blank">🎮 如何開始遊玩</a>
+      <a href="https://www.youtube.com/watch?v=WWWWWW" target="_blank">🎟️ 如何參加抽獎</a>
+    </div>
+
     <div v-if="!blockchainConfirm" class="overlay">
       <div class="loading-message">
         <p>請稍後，交易確認中...</p>
@@ -43,7 +52,8 @@
           </div>
 
           <!-- 徽章展示區 -->
-          <BadgeDisplay :wallet-address="walletAddress" :refreshKey="drawBadgeKey" :user-time-coin="userInfo.timeCoin"/>
+          <BadgeDisplay :wallet-address="walletAddress" :refreshKey="drawBadgeKey"
+            :user-time-coin="userInfo.timeCoin" />
         </div>
 
         <!-- 右側：功能操作區 -->
@@ -56,7 +66,7 @@
 
           <!-- 抽徽章 -->
           <BadgeLottery :wallet-address="walletAddress" @draw-badge="handleDrawBadge" />
-          
+
         </div>
       </div>
 
@@ -225,9 +235,7 @@ export default {
         signature
       };
       try {
-        const response = await axios.post('http://localhost:3000/find-or-add', payload);
-
-        // 設定 userInfo 並顯示歡迎信息
+        const response = await axios.post(`${process.env.VUE_APP_API_URL}/find-or-add`, payload);
         this.userInfo = response.data;
         this.login = true;
         this.wallet_connected = true
@@ -274,7 +282,7 @@ export default {
           yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`;
         }
 
-        await axios.post('http://localhost:3000/getLeaderboard', {
+        await axios.post(`${process.env.VUE_APP_API_URL}/getLeaderboard`, {
           yearWeek
         }).then(rs => {
           // 將排行榜數據保存到 leaderboardPlayers 中
@@ -296,7 +304,7 @@ export default {
       this.userInfo.timeCoin = newUserTimeCoin;
       this.leaderboardPlayers = newLeaderboard;
     },
-    handleDrawBadge(){
+    handleDrawBadge() {
       this.drawBadgeKey += 1
     },
     async handleGameStart({ leftOfPlay, timeCoin }) {
@@ -468,7 +476,7 @@ export default {
       try {
         this.blockchainConfirm = false;
 
-        await axios.post('http://localhost:3000/update-user-balance-when-buy-eth', {
+        await axios.post(`${process.env.VUE_APP_API_URL}/update-user-balance-when-buy-eth`, {
           walletAddress: this.walletAddress,
           balanceChange: this.timeCoin
         });
@@ -487,7 +495,7 @@ export default {
           return; // 終止執行
         }
 
-        var response = await axios.post('http://localhost:3000/update-user-balance-when-buy-playtimes', {
+        var response = await axios.post(`${process.env.VUE_APP_API_URL}/update-user-balance-when-buy-playtimes`, {
           walletAddress: this.walletAddress,
           balanceChange: 100 * this.playTimes,
           playTimes: this.playTimes
@@ -502,7 +510,7 @@ export default {
     },
 
     async withDraw() {
-      await axios.post('http://localhost:3000/update-prize-pool-after-withdraw');
+      await axios.post(`${process.env.VUE_APP_API_URL}/update-prize-pool-after-withdraw`);
     },
 
     async initContract() {
@@ -511,22 +519,23 @@ export default {
     },
 
     async getMainPrizePool() {
-      const response = await axios.get('http://localhost:3000/getMainPrizePool');
+      const response = await axios.get(`${process.env.VUE_APP_API_URL}/getMainPrizePool`);
       this.prizePool = response.data.amount
     },
 
     async getLeaderboardPrizePool() {
-      const response = await axios.get('http://localhost:3000/getLeaderboardPrizePool');
+      const response = await axios.get(`${process.env.VUE_APP_API_URL}/getLeaderboardPrizePool`);
       this.leaderboardPrizePoolTimeCoin = response.data.amount
     },
 
     // websocket
     connectWebSocket() {
       const walletAddress = this.walletAddress.toLowerCase();
-      this.webSocket = new WebSocket(`ws://localhost:3001?walletAddress=${walletAddress}`);
+      this.webSocket = new WebSocket(`${process.env.VUE_APP_WS_URL}?walletAddress=${walletAddress}`);
 
       this.webSocket.onopen = () => {
-        console.log('WebSocket 連接成功，walletAddress:', walletAddress);
+        const connectTime = new Date().toISOString();
+        console.log(`${connectTime} WebSocket 連接成功，walletAddress:`, walletAddress);
       };
 
       this.webSocket.onmessage = (message) => {
@@ -578,7 +587,8 @@ export default {
       };
 
       this.webSocket.onclose = () => {
-        console.log('WebSocket 連接已關閉，30秒後重新連線');
+        const disconnectTime = new Date().toISOString();
+        console.log(`${disconnectTime} WebSocket 連接已關閉，30秒後重新連線`);
         setTimeout(() => this.connectWebSocket(), 30000);
       };
 
@@ -673,5 +683,16 @@ h1 {
 
 :global(body) {
   background-color: rgb(116, 102, 102);
+}
+
+.tutorial {
+  margin-top: 20px;
+}
+
+.tutorial a {
+  display: block;
+  margin-top: 10px;
+  color: #fbff00;
+  text-decoration: none;
 }
 </style>

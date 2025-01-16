@@ -36,8 +36,9 @@ class WebSocketService {
             //   this.listConnectedClients();
 
             // 當 WebSocket 斷開連接時，從列表中移除客戶端
-            ws.on('close', () => {
-                console.log(`客戶端已斷開連接，walletAddress: ${walletAddress}`);
+            ws.on('close', (code, reason) => {
+                const disconnectTime = new Date().toISOString();
+                console.log(`${disconnectTime}客戶端已斷開連接，walletAddress: ${walletAddress}，代碼:${code}，原因:${reason}`);
                 gameInfoModel.forceEndGame(walletAddress);
                 this.clients.delete(walletAddress);
             });

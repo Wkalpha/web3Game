@@ -128,7 +128,7 @@ export default {
       const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7); // 取得當前週數
       const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`; // 例如：202450
 
-      await axios.post('http://localhost:3000/leaderboard-add-bet', {
+      await axios.post(`${process.env.VUE_APP_API_URL}/leaderboard-add-bet`, {
         fromWalletAddress: this.userWalletAddress,
         toWalletAddress: player.WalletAddress,
         betAmount: this.betAmount,
