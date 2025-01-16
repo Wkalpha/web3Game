@@ -1,10 +1,13 @@
 <template>
   <div class="leaderboard-overlay" v-if="isVisible">
     <div class="leaderboard-content">
-      <h2 v-if="currentWeek">本周排行榜</h2>
-      <h2 v-else>上週排行榜</h2>
+      <div class="modal-header">
+        <h2 v-if="currentWeek">本周排行榜</h2>
+        <h2 v-else>上週排行榜</h2>
+        <button @click="closeLeaderboard">X</button>
+      </div>
+
       <h3 v-if="currentWeek">(結算時間: {{ countdown }})</h3>
-      <button class="close-button" @click="closeLeaderboard">X</button>
 
       <!-- 如果正在加載，則顯示加載中 -->
       <div v-if="isLoading" class="loading-message">數據加載中，請稍候...</div>
@@ -52,7 +55,7 @@ export default {
       type: Number,
       required: true
     },
-    currentWeek:{
+    currentWeek: {
       type: Boolean,
       required: true
     }
@@ -217,6 +220,21 @@ export default {
   background-color: #555;
 }
 
+.modal-header {
+  display: flex;
+  position: relative; /* 讓子元素可以使用 absolute 定位 */
+  justify-content: center; /* 初始水平置中 */
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header button {
+  margin-left: auto; /* 推到最右 */
+  position: absolute;
+  right: 0; /* 固定到右側 */
+  top: 0; /* 固定到頂部 */
+}
+
 /* 關閉按鈕 */
 .close-button {
   position: absolute;
@@ -231,10 +249,6 @@ export default {
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.3s ease;
-}
-
-.close-button:hover {
-  background-color: #ff7875;
 }
 
 .rank {

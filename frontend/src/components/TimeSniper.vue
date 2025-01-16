@@ -356,4 +356,28 @@ button {
   margin-right: 16px;
   /* 可調整兩側之間的間距 */
 }
+
+button {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  background: linear-gradient(to right, #ff7eb3, #ff758c);
+  /* 漸變色 */
+  color: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+button:hover {
+  background: linear-gradient(to right, #ff6584, #ff4b6b);
+  /* 滑鼠移入時的漸變 */
+  transform: translateY(-2px);
+}
+
+button:active {
+  transform: scale(0.95);
+}
 </style>

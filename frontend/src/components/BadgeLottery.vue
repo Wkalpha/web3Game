@@ -17,8 +17,8 @@
           </li>
         </ul>
         <!-- 新增的說明按鈕 -->
-        <button @click="showPrizeDescription" class="info-button">說明</button>
-        <button @click="closeModal" class="close-button">關閉</button>
+        <button @click="showPrizeDescription">說明</button>
+        <button @click="closeModal">關閉</button>
       </div>
     </div>
   </div>
@@ -211,20 +211,5 @@ export default {
 
 .modal-content li {
   margin: 10px 0;
-}
-
-.close-button {
-  background: #f44336;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 10px 20px;
-  font-size: 16px;
-  cursor: pointer;
-  margin-top: 20px;
-}
-
-.close-button:hover {
-  background: #e53935;
 }
 </style>

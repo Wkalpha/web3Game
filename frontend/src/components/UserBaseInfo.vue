@@ -6,7 +6,7 @@
         <div v-if="isModalVisible" class="modal-overlay">
             <div class="modal">
                 <div class="modal-header">
-                    <h3>角色資訊</h3>
+                    <h2>角色資訊</h2>
                     <button @click="closeModal">X</button>
                 </div>
                 <div class="modal-body">
@@ -91,7 +91,7 @@ export default {
 }
 
 .modal {
-    background: rgb(80, 76, 76);
+    background: rgb(255, 255, 255);
     padding: 20px;
     border-radius: 8px;
     width: 300px;
@@ -100,21 +100,22 @@ export default {
 }
 
 .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
+  display: flex;
+  position: relative; /* 讓子元素可以使用 absolute 定位 */
+  justify-content: center; /* 初始水平置中 */
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header button {
+  margin-left: auto; /* 推到最右 */
+  position: absolute;
+  right: 0; /* 固定到右側 */
+  top: 0; /* 固定到頂部 */
 }
 
 .modal-header h3 {
     margin: 0;
-}
-
-.modal-header button {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
 }
 
 .modal-body ul {

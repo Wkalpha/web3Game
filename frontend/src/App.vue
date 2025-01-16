@@ -11,13 +11,12 @@
     <p v-if="wallet_connected && login">合約地址: {{ contractAddress }}</p>
     <button v-if="!login" @click="connectWallet" :disabled="wallet_connected">連結錢包</button>
 
-    <!-- 教學影片連結 -->
-    <div v-if="!login" class="tutorial">
-      <p>不熟悉 Web3？查看我們的教學影片！</p>
-      <a href="https://www.youtube.com/watch?v=XXXXXX" target="_blank">📺 如何建立 MetaMask 錢包</a>
-      <a href="https://www.youtube.com/watch?v=YYYYYY" target="_blank">💰 如何獲得 Time Coin (TC)</a>
-      <a href="https://www.youtube.com/watch?v=ZZZZZZ" target="_blank">🎮 如何開始遊玩</a>
-      <a href="https://www.youtube.com/watch?v=WWWWWW" target="_blank">🎟️ 如何參加抽獎</a>
+    <div v-if="!login">
+      <p>不知如何開始？點擊下方👇加入 Discord 獲取更多資訊</p>
+      <a href="https://discord.gg/gxBTtEWb" target="_blank"
+        style="display: inline-flex; align-items: center; text-decoration: none;">
+        <img src="/images/discord.png" alt="Discord" style="width:30px; height:30px; margin-right:8px;">加入我們的 Discord
+      </a>
     </div>
 
     <div v-if="!blockchainConfirm" class="overlay">
@@ -32,7 +31,8 @@
         <!-- 左側：資訊展示區 -->
         <div class="info-section">
           <DailyQuest :refreshKey="userDailyQuestKey" :wallet-address="walletAddress" />
-          <p>錢包帳號地址: {{ formattedWalletAddress }}</p>
+          <p>錢包地址: {{ formattedWalletAddress }}<button @click="copyWalletAddress(walletAddress)">複製</button>
+          </p>
           <p>
             餘額:
             <span v-if="showBalance">{{ balance }} ETH</span>
@@ -97,9 +97,38 @@ import BadgeDisplay from "./components/BadgeDisplay.vue";
 import BadgeLottery from "./components/BadgeLottery.vue";
 import DailyQuest from "@/components/DailyQuest.vue";
 import Swal from 'sweetalert2';
+import { useToast } from "vue-toastification";
 
 export default {
   name: 'App',
+  setup() {
+    const toast = useToast();
+
+    // 複製錢包地址並顯示 Toast
+    const copyWalletAddress = (address) => {
+      if (!address) {
+        toast.error("無法複製，錢包地址為空！", {
+          timeout: 2000,
+        });
+        return;
+      }
+
+      // 將錢包地址複製到剪貼簿
+      navigator.clipboard.writeText(address)
+        .then(() => {
+          toast.success(`已複製 ${address}`, {
+            timeout: 2000,
+          });
+        })
+        .catch(() => {
+          toast.error("複製失敗，請稍後再試！", {
+            timeout: 2000,
+          });
+        });
+    };
+
+    return { copyWalletAddress };
+  },
   components: {
     TimeSniper,
     LeaderBoard,
@@ -694,5 +723,29 @@ h1 {
   margin-top: 10px;
   color: #fbff00;
   text-decoration: none;
+}
+
+button {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  background: linear-gradient(to right, #ff7eb3, #ff758c);
+  /* 漸變色 */
+  color: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+button:hover {
+  background: linear-gradient(to right, #ff6584, #ff4b6b);
+  /* 滑鼠移入時的漸變 */
+  transform: translateY(-2px);
+}
+
+button:active {
+  transform: scale(0.95);
 }
 </style>
