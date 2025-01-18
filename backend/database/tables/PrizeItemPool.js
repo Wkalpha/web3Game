@@ -19,9 +19,9 @@ const createPrizeItemPoolTable = async () => {
       INSERT IGNORE INTO PrizeItemPool  
       (PoolName, EntryFee, GuaranteeDraw)
       VALUES 
-      ('Normal', 20, 10),
-      ('Rare', 50, 20),
-      ('Epic', 100, 30);
+      ('A', 20, 10),
+      ('B', 50, 20),
+      ('C', 100, 30);
     `;
 
   await pool.execute(insertDataSql);

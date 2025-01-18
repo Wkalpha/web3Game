@@ -217,7 +217,7 @@ const gameOver = async (gameId) => {
         const gameResult = determineGameResult(totalScore, gameLevelInfo.Threshold);
 
         let userTimeCoinOdds = gameResult.winOrLose === 'win' ? parseFloat(gameInfo.Odds) : 0;
-        const prizePoolOdds = gameResult.winOrLose === 'lose' ? 1 : -parseFloat(gameInfo.Odds);
+        const prizePoolOdds = gameResult.winOrLose === 'lose' ? 1 : (1-parseFloat(gameInfo.Odds));
 
         // 取得 UserInfo 資訊
         const userInfo = await userModel.getBaseInfo(gameInfo.WalletAddress);
@@ -264,13 +264,13 @@ const gameOver = async (gameId) => {
             }
         };
 
-        const rewardAmount = parseFloat(gameInfo.BetAmount) * userTimeCoinOdds;
+        const rewardAmount = parseFloat(gameInfo.BetAmount) * (userTimeCoinOdds-1);
         const gameResultMessage = {
             event: 'GameResult',
             data: {
                 walletAddress: gameInfo.WalletAddress,
                 showText: gameResult.winOrLose === 'win'
-                    ? `挑戰成功，您贏得了 ${rewardAmount} 顆 TimeCoin！`
+                    ? `挑戰成功，您贏得了 ${Math.round(rewardAmount)} TimeCoin！`
                     : '挑戰失敗'
             }
         };

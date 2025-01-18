@@ -115,6 +115,7 @@ const findOrAdd = async (walletAddress) => {
             walletAddress: userInfo.WalletAddress,
             leftOfPlay: userInfo.LeftOfPlay,
             timeCoin: userInfo.AdjustedTimeCoin,
+            referredBy: userInfo.ReferredBy
         }
         return rs;
     }

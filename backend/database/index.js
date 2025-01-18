@@ -20,6 +20,8 @@ const createUserBadgeTable = require('./tables/UserBadge');
 const createBadgeTransferLogTable = require('./tables/BadgeTransferLog');
 const createDailyQuestsTable = require('./tables/DailyQuests');
 const createUserDailyProgressTable = require('./tables/UserDailyProgress');
+const createReferralsTable = require('./tables/Referrals');
+
 
 // 環境變數
 const DB_HOST = process.env.DB_HOST || '127.0.0.1';
@@ -77,6 +79,7 @@ async function initializeDatabase() {
         await createBadgeTransferLogTable();
         await createDailyQuestsTable();
         await createUserDailyProgressTable();
+        await createReferralsTable();
 
         console.log('🎉 所有表、函數、事件初始化完成');
         

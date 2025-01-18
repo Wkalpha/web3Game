@@ -25,6 +25,7 @@ const claimQuestReward = async (req, res) => {
     const success = await dailyQuestModel.claimQuestReward(walletAddress, questId);
     if (success) {
       const userTimeCoin = await userModel.getTimeCoin(walletAddress);
+      
       // webSocket
       const timeCoinChangeMessage = {
         event: 'TimeCoinChange',

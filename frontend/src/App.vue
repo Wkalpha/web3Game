@@ -12,7 +12,7 @@
     <button v-if="!login" @click="connectWallet" :disabled="wallet_connected">連結錢包</button>
 
     <div v-if="!login">
-      <p>不知如何開始？點擊下方👇加入 Discord 獲取更多資訊</p>
+      <p>👇點擊下方加入 Discord 獲取更多資訊👇</p>
       <a href="https://discord.gg/gxBTtEWb" target="_blank"
         style="display: inline-flex; align-items: center; text-decoration: none;">
         <img src="/images/discord.png" alt="Discord" style="width:30px; height:30px; margin-right:8px;">加入我們的 Discord
@@ -31,7 +31,9 @@
         <!-- 左側：資訊展示區 -->
         <div class="info-section">
           <DailyQuest :refreshKey="userDailyQuestKey" :wallet-address="walletAddress" />
-          <p>錢包地址: {{ formattedWalletAddress }}<button @click="copyWalletAddress(walletAddress)">複製</button>
+          <p>錢包地址: {{ formattedWalletAddress }}
+            <button @click="copyWalletAddress(walletAddress)">複製</button>
+            <button v-if="!referredBy" @click="referrerBy">填寫推薦人</button>
           </p>
           <p>
             餘額:
@@ -169,7 +171,8 @@ export default {
       isLoading: false, // 是否正在加載排行榜數據
       showText: '遊戲進行中',
       drawBadgeKey: 0,
-      userDailyQuestKey: 0
+      userDailyQuestKey: 0,
+      referredBy: null
     };
   },
   computed: {
@@ -266,6 +269,7 @@ export default {
       try {
         const response = await axios.post(`${process.env.VUE_APP_API_URL}/find-or-add`, payload);
         this.userInfo = response.data;
+        this.referredBy = response.data.referredBy;
         this.login = true;
         this.wallet_connected = true
       } catch (error) {
@@ -342,6 +346,63 @@ export default {
     },
     toggleBalanceVisibility() {
       this.showBalance = !this.showBalance;
+    },
+    async referrerBy() {
+      try {
+        // 顯示 SweetAlert 提示框，要求用戶輸入推薦人錢包地址
+        const { value: referrerWalletAddress } = await Swal.fire({
+          title: '請填寫推薦人錢包地址',
+          input: 'text',
+          inputLabel: '推薦人錢包地址',
+          inputPlaceholder: '請輸入推薦人的錢包地址',
+          showCancelButton: true,
+          confirmButtonText: '確認',
+          cancelButtonText: '取消',
+          inputValidator: (value) => {
+            if (!value) {
+              return '請輸入推薦人錢包地址！';
+            }
+            return null;
+          },
+        });
+
+        // 如果用戶取消輸入，直接返回
+        if (!referrerWalletAddress) {
+          return;
+        }
+
+        const payload = {
+          keyInWalletAddress: this.walletAddress, // 當前用戶的錢包地址
+          provierWalletAddress: referrerWalletAddress
+        }
+
+        const response = await axios.post(`${process.env.VUE_APP_API_URL}/referral`, payload);
+
+        // 根據後端返回結果顯示成功消息
+        if (response.data) {
+          Swal.fire({
+            icon: 'success',
+            title: '推薦成功！',
+            text: `您與推薦人均已獲得獎勵！`,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+          });
+          this.referredBy = referrerWalletAddress;
+        }
+      } catch (error) {
+        // 顯示錯誤提示
+        Swal.fire({
+          icon: 'error',
+          title: '推薦失敗',
+          text: error.response?.data?.error || '發生未知錯誤，請稍後重試。',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+        });
+      }
     },
     async openETHToTimeCoinInputBox() {
       this.ethToTimeCoinInputBox = !this.ethToTimeCoinInputBox;
@@ -734,14 +795,12 @@ button {
   cursor: pointer;
   transition: all 0.3s ease-in-out;
   background: linear-gradient(to right, #ff7eb3, #ff758c);
-  /* 漸變色 */
   color: white;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 }
 
 button:hover {
   background: linear-gradient(to right, #ff6584, #ff4b6b);
-  /* 滑鼠移入時的漸變 */
   transform: translateY(-2px);
 }
 

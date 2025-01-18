@@ -14,6 +14,7 @@ const dailyQuestModel = require('../models/dailyQuestModel');
  */
 const getPrizeItem = async (req, res) => {
   const { poolName, walletAddress } = req.body;
+  
   try {
     const prizeItems = await prizeItemModel.queryPrizeItem(poolName);
 
@@ -87,7 +88,9 @@ const tenDrawPrize = async (req, res) => {
     // 用 ItemId 去 UserInventory 找出對應數量
     const ticketQuantity = await userInventoryModel.getUserInventoryCount(walletAddress, itemId);
 
-    let totalFee = EntryFee * Math.max(0, (10 - ticketQuantity)); // 10連抽所需的費用
+    const requiredTickets = Math.min(ticketQuantity, 10); // 每次最多10張
+
+    let totalFee = EntryFee * (10 - requiredTickets); // 10連抽所需的費用
 
     // 取得使用者抽獎費用降低徽章資訊
     const decraeseDrawFeeBadgeInfo = await badgeModel.getBadgeEffect(walletAddress, 4); 0.0
@@ -162,6 +165,9 @@ const tenDrawPrize = async (req, res) => {
       await userDrawLogModel.insertUserDrawLog(userInfo.userId, PrizeItemPoolId, prize.ItemId, prize.BigPrize);
     }
 
+    // 扣除相對應的票券
+    await userInventoryModel.decrementItemQuantity(userInfo.userId, itemId, requiredTickets);
+
     // 8.通知玩家 Time Coin 變化
     const timeCoinChangeMsg = {
       event: 'TimeCoinChange',
@@ -223,7 +229,19 @@ const performDraw = async (poolName, walletAddress, ticket) => {
 
   // 取得使用者抽獎費用降低徽章資訊
   const decraeseDrawFeeBadgeInfo = await badgeModel.getBadgeEffect(walletAddress, 4);
-  const entryFee = ticket ? 0 : Math.max(0, Math.round(filtered[0].EntryFee * Math.max(0.5, (1 - decraeseDrawFeeBadgeInfo.quantity * decraeseDrawFeeBadgeInfo.effectValue)))); // 如果使用 Ticket 則不用費用
+  let entryFee = ticket ? 0 : Math.max(0, Math.round(filtered[0].EntryFee * Math.max(0.5, (1 - decraeseDrawFeeBadgeInfo.quantity * decraeseDrawFeeBadgeInfo.effectValue)))); // 如果使用 Ticket 則不用費用
+
+  // 使用者若有對應票券，自動扣除票券且費用為0
+  // PoolName 找出 ItemId
+  const itemId = await prizeItemModel.getPrizeItemIdByPoolName(poolName);
+
+  // 用 ItemId 去 UserInventory 找出對應數量
+  const ticketQuantity = await userInventoryModel.getUserInventoryCount(walletAddress, itemId);
+
+  if(ticketQuantity > 0){
+    entryFee = 0;
+  }
+
   const guaranteeDraw = filtered[0].GuaranteeDraw;
   const prizeItemPoolId = filtered[0].PrizeItemPoolId;
 
@@ -299,6 +317,9 @@ const performDraw = async (poolName, walletAddress, ticket) => {
   await userDrawCounterModel.incrementDrawCounter(userInfo.userId, prizeItemPoolId);
   await userDrawLogModel.insertUserDrawLog(userInfo.userId, prizeItemPoolId, prize.ItemId, prize.BigPrize);
   await dailyQuestModel.updateQuestProgress(walletAddress, 2);
+
+  // 扣除相對應的票券
+  await userInventoryModel.decrementItemQuantity(userInfo.userId, itemId, 1);
 
   return {
     prize: {

@@ -6,14 +6,14 @@
         <div v-else>
             <div v-for="(prizeItemPool, index) in prizeItemPools" :key="index">
                 <button @click="openPrizeModal(prizeItemPool.PoolName, prizeItemPool.EntryFee)" class="draw-button">
-                    {{ prizeItemPool.PoolName }}
+                    {{ prizeItemPool.PoolName }} 獎池
                 </button>
             </div>
         </div>
         <!-- Modal 彈窗 -->
         <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
             <div class="modal-content">
-                <h2>{{ selectedPoolName }}</h2>
+                <h2>{{ selectedPoolName }} 獎池</h2>
                 <h2>抽一次 {{ prizeItemPoolEntryFee }} Time Coin</h2>
                 <h3>已累計 {{ userDrawCounter }} 抽</h3>
                 <button @click="drawPrize(selectedPoolName)" class="draw-button"

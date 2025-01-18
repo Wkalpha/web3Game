@@ -96,7 +96,8 @@ const findOrAddUser = async (req, res) => {
       isNewUser: result.isNewUser,
       walletAddress: result.walletAddress,
       leftOfPlay: result.leftOfPlay,
-      timeCoin: result.timeCoin
+      timeCoin: result.timeCoin,
+      referredBy: result.referredBy
     })
   } catch (err) {
     console.error('檢查用戶失敗：', err);
