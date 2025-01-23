@@ -23,7 +23,7 @@ const upsertLeaderboardAfterGameOver = async (walletAddress, yearWeek, winIncrem
         ON DUPLICATE KEY UPDATE 
             Win = Win + ?, 
             Lose = Lose + ?, 
-            Scores = Scores + ?, 
+            Scores = GREATEST(Scores + ?, 0), 
             UpdatedAt = CURRENT_TIMESTAMP
     `;
     await pool.execute(sql, [walletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment, winIncrement, loseIncrement, scoreAdjustment]);

@@ -13,7 +13,10 @@ const updateTop3Ranks = async (yearWeek = '202502') => {
             SELECT WalletAddress 
             FROM Leaderboard 
             WHERE YearWeek = ? 
-            ORDER BY Scores DESC 
+            ORDER BY 
+                Scores DESC,
+                Win DESC,
+                Lose ASC
             LIMIT 3;
         `, [yearWeek]);
 

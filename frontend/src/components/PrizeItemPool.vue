@@ -236,6 +236,7 @@ export default {
     text-align: center;
 }
 
+/* 抽獎按鈕樣式 */
 .draw-button {
     background-color: #4caf50;
     color: white;
@@ -245,6 +246,13 @@ export default {
     font-size: 18px;
     cursor: pointer;
     transition: background-color 0.3s;
+    width: 80%;
+    /* 使用百分比確保響應式 */
+    max-width: 300px;
+    /* 限制按鈕最大寬度 */
+    margin: 10px auto;
+    /* 居中對齊 */
+    display: block;
 }
 
 .draw-button:hover {
@@ -302,5 +310,48 @@ export default {
 
 .modal-content li {
     margin: 10px 0;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .draw-button {
+        font-size: 16px;
+        padding: 8px 16px;
+        width: 90%;
+    }
+
+    .modal-content {
+        width: 95%;
+        padding: 15px;
+    }
+
+    .modal-content h2 {
+        font-size: 1.3rem;
+    }
+
+    .modal-content li {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .draw-button {
+        font-size: 14px;
+        padding: 8px 12px;
+        width: 100%;
+    }
+
+    .modal-content {
+        width: 100%;
+        padding: 10px;
+    }
+
+    .modal-content h2 {
+        font-size: 1.2rem;
+    }
+
+    .modal-content li {
+        font-size: 0.9rem;
+    }
 }
 </style>

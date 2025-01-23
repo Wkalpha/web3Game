@@ -169,7 +169,7 @@ export default {
       leaderboardPlayers: [], // 從 API 獲取的排行榜數據
       leaderboardPrizePoolTimeCoin: 0,
       isLoading: false, // 是否正在加載排行榜數據
-      showText: '遊戲進行中',
+      showText: '',
       drawBadgeKey: 0,
       userDailyQuestKey: 0,
       referredBy: null
@@ -775,17 +775,6 @@ h1 {
   background-color: rgb(116, 102, 102);
 }
 
-.tutorial {
-  margin-top: 20px;
-}
-
-.tutorial a {
-  display: block;
-  margin-top: 10px;
-  color: #fbff00;
-  text-decoration: none;
-}
-
 button {
   border: none;
   padding: 8px 12px;
@@ -794,7 +783,7 @@ button {
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease-in-out;
-  background: linear-gradient(to right, #ff7eb3, #ff758c);
+  background: linear-gradient(to right, #7e81ff, #ff758c);
   color: white;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 }
@@ -806,5 +795,31 @@ button:hover {
 
 button:active {
   transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column; /* 改為垂直排列 */
+    gap: 10px; /* 減小區塊間距 */
+  }
+
+  .info-section, .action-section {
+    flex: unset; /* 取消等寬設置 */
+  }
+
+  .game-section {
+    margin-top: 10px;
+    padding: 10px;
+  }
+
+  button {
+    font-size: 12px; /* 按鈕文字縮小 */
+    padding: 6px 10px;
+  }
+
+  .pool-section {
+    flex-direction: column; /* 改為垂直排列 */
+    gap: 5px; /* 減小間距 */
+  }
 }
 </style>

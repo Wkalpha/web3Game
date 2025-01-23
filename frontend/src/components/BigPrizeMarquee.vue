@@ -83,16 +83,24 @@ export default {
 .announcement-container {
     top: 0;
     width: 100%;
+    height: 50px; /* 設定固定高度，例如 50px */
     z-index: 9999;
     background-color: #ffd90000;
     color: #000;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
 }
 
 /* 文字樣式 */
 .announcement-message {
     font-weight: bold;
     margin: 0;
+    overflow: hidden; /* 隱藏超出部分 */
+    text-overflow: ellipsis; /* 文字超出時以省略號顯示 */
+    max-width: 90%; /* 設置最大寬度，避免與邊界貼齊 */
 }
 
 /* 淡入淡出動畫 */

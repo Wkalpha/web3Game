@@ -148,6 +148,27 @@ const sumScoreByGameId = async (gameId) => {
     return totalScore;
 };
 
+/**
+ * 根據 GameId 取得資料
+ */
+const gameLog = async (gameId) => {
+    const sql = `
+        SELECT 
+            Round,
+            Scores,
+            StartTime,
+            EndTime,
+            ElapsedTime,
+            TargetTime
+        FROM GameLog
+        WHERE GameId = ?
+        ORDER BY Round ASC;
+    `;
+    const [rows] = await pool.execute(sql, [gameId]);
+    
+    return rows;
+};
+
 module.exports = {
     getGameLogCountByGameId,
     insertWhenGameStart,
@@ -155,5 +176,6 @@ module.exports = {
     updateWhenStartTimer,
     queryByGameIdAndRound,
     updateWhenEndTimer,
-    sumScoreByGameId
+    sumScoreByGameId,
+    gameLog
 };

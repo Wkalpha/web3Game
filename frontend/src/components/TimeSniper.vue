@@ -4,6 +4,7 @@
       <UserInventory ref="userInventory" :wallet-address="walletAddress" @get-inventory="handleInventory" />
       <UserBaseInfo :wallet-address="walletAddress" />
     </div>
+
     <h2>遊戲</h2>
     <h2>剩餘可遊玩次數{{ leftOfPlay }}</h2>
     <div v-if="!gameStarted && !gameFinished">
@@ -12,7 +13,8 @@
       <button @click="setDifficulty('Normal')">Normal</button>
       <button @click="setDifficulty('Hard')">Hard</button>
       <div v-if="difficulty">
-        <p>選擇的難度：{{ difficulty }}(賠率{{ odds }})</p>
+        <p>賠率: {{ odds }}</p>
+        <p>獲勝門檻: {{ threshold }} 分</p>
         <p>投入 Time Coin</p>
         <input type="number" v-model.number="betAmount" placeholder="至少 100 Time Coin" />
         <div>
@@ -28,6 +30,7 @@
       <p v-if="countdownTime >= 60">倒數時間：{{ Math.floor(countdownTime / 60) }} 分鐘</p>
       <p v-else>遊戲即將結束</p>
       <h3>回合 {{ currentRound }} / {{ gameRound }}</h3>
+      <p>獲勝門檻: {{ threshold }} 分</p>
       <p v-if="!targetTime">目標秒數: -</p>
       <p v-else>目標秒數: {{ targetTime }}</p>
       <button v-if="!targetTime" @click="getTargetTime">取得目標時間</button>
@@ -41,8 +44,10 @@
 
     <div v-if="gameFinished">
       <h3>遊戲結束</h3>
-      <p>總分：{{ totalScore }}</p>
+      <p>獲勝門檻: {{ threshold }} 分</p>
+      <p>總分：{{ totalScore }} 分</p>
       <p>{{ showGameResultText }}</p>
+      <button @click="getGameLog">遊戲紀錄</button>
       <button @click="resetGame">重新開始</button>
     </div>
 
@@ -59,6 +64,30 @@
               <button @click="selectItem(item)">{{ item.ItemName }}</button>
             </li>
           </ul>
+          <button @click="noUseItem()" style="background: black;">不使用道具</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 游戏日志 Modal -->
+    <div v-if="isGameLogModalVisible" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>遊戲紀錄</h3>
+          <button @click="isGameLogModalVisible = false">X</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="gameLog">
+            <div v-for="(log, index) in gameLog" :key="index" class="log-entry">
+              <p>回合數: {{ log.Round }}</p>
+              <p>目標秒數: {{ log.TargetTime }}</p>
+              <p>得分: {{ log.Scores }}</p>
+              <hr v-if="index < gameLog.length - 1">
+            </div>
+          </div>
+          <div v-else>
+            <p>載入中...</p>
+          </div>
         </div>
       </div>
     </div>
@@ -115,7 +144,9 @@ export default {
       gameFinished: false,
       inventory: null,
       isModalVisible: false, // 控制道具選擇 Modal 顯示
-      useNoItem: false
+      useNoItem: false,
+      isGameLogModalVisible: false, // 控制 GameLog Modal 顯示
+      gameLog: null,
     };
   },
   computed: {
@@ -147,12 +178,15 @@ export default {
       switch (this.difficulty) {
         case 'Easy':
           this.odds = 0.01;
+          this.threshold = 40;
           break;
         case 'Normal':
           this.odds = 0.03;
+          this.threshold = 100;
           break;
         case 'Hard':
           this.odds = 0.1;
+          this.threshold = 130;
           break;
         default:
           break;
@@ -168,11 +202,11 @@ export default {
       }
       this.betAmountError = '';
 
-      await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, {walletAddress:this.walletAddress}).then(rs=>{
+      await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, { walletAddress: this.walletAddress }).then(rs => {
         this.inventory = rs.data.inventory.filter(item => item.ItemType === 'DamageBuff' || item.ItemType === 'FinalBuff' || item.ItemType === 'FunctionalBuff');
       })
 
-      if (this.inventory.length == 0){
+      if (this.inventory.length == 0) {
         this.startGame();
         return;
       }
@@ -191,8 +225,24 @@ export default {
       this.isModalVisible = false; // 關閉 Modal
       this.startGame(); // 開始遊戲
     },
+    noUseItem() {
+      this.isModalVisible = false; // 關閉 Modal
+      this.startGame(); // 開始遊戲
+    },
     closeModal() {
       this.isModalVisible = false; // 關閉 Modal
+    },
+    async getGameLog() {
+      const payload = {
+        gameId: this.gameId
+      }
+      try {
+        const response = await axios.post(`${process.env.VUE_APP_API_URL}/game-log`, payload);
+        this.gameLog = response.data.gameLog;
+        this.isGameLogModalVisible = true;
+      } catch (error) {
+        console.error('錯誤:', error);
+      }
     },
     async startGame() {
       this.gameStarted = true;
@@ -208,7 +258,6 @@ export default {
         this.startCountdown();
         this.gameId = rs.data.gameId;
         this.gameRound = rs.data.gameRound;
-        this.threshold = rs.data.threshold;
         // 通知父組件
         this.$emit('game-start', { leftOfPlay: rs.data.leftOfPlay, timeCoin: rs.data.timeCoin });
       })
@@ -365,7 +414,7 @@ button {
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease-in-out;
-  background: linear-gradient(to right, #ff7eb3, #ff758c);
+  background: linear-gradient(to right, #7e81ff, #ff758c);
   /* 漸變色 */
   color: white;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);

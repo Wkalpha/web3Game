@@ -11,6 +11,8 @@ const createUserInfoTable = async () => {
       BaseAttackPower DECIMAL(10, 5) DEFAULT 1, -- 玩家基礎攻擊力
       RewardMultiplier DECIMAL(10, 5) DEFAULT 1, -- 玩家結算獎勵倍數
       ReferredBy VARCHAR(255) DEFAULT NULL, -- 推薦人
+      TotalPlayCount INT DEFAULT 0, -- 總遊玩次數
+      LastLogin TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       Creator VARCHAR(255) NOT NULL
     )

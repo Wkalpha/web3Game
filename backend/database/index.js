@@ -10,7 +10,6 @@ const createPrizeItemTable = require('./tables/PrizeItem');
 const createUserDrawLogTable = require('./tables/UserDrawLog');
 const createUserDrawCounterTable = require('./tables/UserDrawCounter');
 const createUserInventoryTable = require('./tables/UserInventory');
-const createResetLeftOfPlayDailyEvent = require('./events/ResetLeftOfPlayDaily');
 const createGameInfoTable = require('./tables/GameInfo');
 const createGameLogTable = require('./tables/GameLog');
 const createGameLevel = require('./tables/GameLevel');
@@ -72,7 +71,6 @@ async function initializeDatabase() {
         await createGameInfoTable();
         await createGameLogTable();
         await createGameLevel();
-        await createResetLeftOfPlayDailyEvent();
         await createRewardLogTable();
         await createBadgeDetailTable();
         await createUserBadgeTable();

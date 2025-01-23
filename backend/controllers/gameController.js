@@ -249,6 +249,7 @@ const gameOver = async (gameId) => {
         const loseIncrement = gameResult.winOrLose === 'lose' ? 1 : 0;
         const scoreAdjustment = gameResult.winOrLose === 'win' ? gameLevelInfo.Score : -gameLevelInfo.Score;
 
+        // 更新排行榜資訊
         await leaderboardModel.upsertLeaderboardAfterGameOver(gameInfo.WalletAddress, yearWeek, winIncrement, loseIncrement, scoreAdjustment);
 
         // 5. 更新 GameInfo
@@ -297,6 +298,24 @@ const gameOver = async (gameId) => {
 };
 
 /**
+ * 取得 GameId 的 GameLog
+ */
+const gameLog = async (req, res) => {
+    const { gameId } = req.body;
+    try {
+
+        const result = await gameLogModel.gameLog(gameId);
+
+        res.json({
+            gameLog: result
+        });
+    } catch (err) {
+        console.error('錯誤', err);
+        res.status(500).send('資料庫錯誤');
+    }
+};
+
+/**
  * 取得當年的第幾星期 例如 2024/12/21 會回傳 202451
  * @returns 
  */
@@ -328,5 +347,6 @@ module.exports = {
     getTargetTime,
     startTimer,
     endTimer,
-    gameOver
+    gameOver,
+    gameLog
 };

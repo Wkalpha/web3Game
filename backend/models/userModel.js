@@ -81,7 +81,7 @@ const deductTimeCoin = async (walletAddress, amount) => {
 const deductPlayTimes = async (walletAddress) => {
     const sql = `
     UPDATE UserInfo
-    SET LeftOfPlay = LeftOfPlay - 1
+    SET LeftOfPlay = LeftOfPlay - 1 , TotalPlayCount = TotalPlayCount + 1
     WHERE WalletAddress = ?
   `;
     await pool.execute(sql, [walletAddress]);
@@ -108,6 +108,12 @@ const findOrAdd = async (walletAddress) => {
         }
         return rs;
     } else {
+        // 新增更新最後登入時間操作
+        await pool.execute(
+            `UPDATE UserInfo SET LastLogin = CURRENT_TIMESTAMP WHERE WalletAddress = ?`,
+            [walletAddress]
+        );
+
         const userInfo = result[0];
         const rs = {
             isNewUser: false,
