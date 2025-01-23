@@ -678,8 +678,8 @@ export default {
 
       this.webSocket.onclose = () => {
         const disconnectTime = new Date().toISOString();
-        console.log(`${disconnectTime} WebSocket 連接已關閉，30秒後重新連線`);
-        setTimeout(() => this.connectWebSocket(), 30000);
+        console.log(`${disconnectTime} WebSocket 連接已關閉`);
+        this.login = false;
       };
 
       this.webSocket.onerror = (error) => {
