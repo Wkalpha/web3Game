@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <!-- 游戏日志 Modal -->
+    <!-- Game Log Modal -->
     <div v-if="isGameLogModalVisible" class="modal-overlay">
       <div class="modal">
         <div class="modal-header">

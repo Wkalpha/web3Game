@@ -28,142 +28,102 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted, onBeforeUnmount, defineProps, defineEmits } from 'vue';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 
-export default {
-  name: 'ShowLeaderboard',
-  props: {
-    isVisible: {
-      type: Boolean,
-      required: true
-    },
-    players: {
-      type: Array,
-      required: true
-    },
-    isLoading: {
-      type: Boolean,
-      required: true
-    },
-    userWalletAddress: {
-      type: String,
-      required: true
-    },
-    userTimeCoin: {
-      type: Number,
-      required: true
-    },
-    currentWeek: {
-      type: Boolean,
-      required: true
-    }
-  },
-  data() {
-    return {
-      betAmount: 0,
-      countdown: '' // 確保 countdown 被聲明
-    };
-  },
-  mounted() {
-    this.updateCountdown();
-    this.intervalId = setInterval(() => {
-      this.updateCountdown();
-    }, 1000);
-  },
-  beforeUnmount() {
-    clearInterval(this.intervalId);
-  },
-  methods: {
-    isSelf(walletAddress) {
-      return walletAddress === this.userWalletAddress;
-    },
-    closeLeaderboard() {
-      this.$emit('closeLeaderboard');
-    },
-    formatWalletAddress(address) {
-      if (!address) return '';
-      const firstPart = address.slice(0, 3);
-      const lastPart = address.slice(-3);
-      return `${firstPart}...${lastPart}`;
-    },
-    async placeBet(player) {
-      const { value: betAmount } = await Swal.fire({
-        title: '請輸入下注金額',
-        input: 'number',
-        html: `
-          <strong>注意</strong>
-          <ul style="text-align: left; font-size: 18px;">
-            <li>✅ 最少 <strong>500</strong> Time Coin</li>
-            <li>✅ 必須是 <strong>正整數</strong></li>
-            <li>✅ 不得超過您擁有的 <strong>${this.userTimeCoin}</strong> Time Coin</li>
-            <li>每周一 UTC 00:00 重置並計算獎勵</li>
-          </ul>
-        `,
-        inputPlaceholder: '輸入 Time Coin',
-        inputAttributes: {
-          min: 500,
-          step: 1
-        },
-        showCancelButton: true
-      });
+const props = defineProps({
+  isVisible: Boolean,
+  players: Array,
+  isLoading: Boolean,
+  userWalletAddress: String,
+  userTimeCoin: Number,
+  currentWeek: Boolean
+});
 
-      if (!betAmount) return; // 使用者按取消
+const emit = defineEmits(['closeLeaderboard', 'bet-complete']);
+const countdown = ref('');
+let intervalId;
 
-      const parsedAmount = parseInt(betAmount, 10);
+const isSelf = (walletAddress) => walletAddress === props.userWalletAddress;
 
-      if (isNaN(parsedAmount) || parsedAmount < 500 || parsedAmount > this.userTimeCoin || parsedAmount <= 0) {
-        Swal.fire({
-          icon: 'error',
-          title: '無效的下注金額',
-          text: '請確認金額必須是正整數，最少 500 並且不能超過您所持有的 Time Coin。'
-        });
-        return;
-      }
-
-      this.betAmount = parsedAmount;
-
-      const currentDate = new Date();
-      const year = currentDate.getFullYear();
-      const firstDayOfYear = new Date(year, 0, 1);
-      const pastDaysOfYear = Math.floor((currentDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
-      const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7); // 取得當前週數
-      const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`; // 例如：202450
-
-      await axios.post(`${process.env.VUE_APP_API_URL}/leaderboard-add-bet`, {
-        fromWalletAddress: this.userWalletAddress,
-        toWalletAddress: player.WalletAddress,
-        betAmount: this.betAmount,
-        yearWeek
-      }).then(rs => {
-        // 通知父組件
-        this.$emit('bet-complete', { newUserTimeCoin: rs.data.userTimeCoin, newLeaderboard: rs.data.leaderboard });
-        Swal.fire({
-          icon: 'success',
-          title: '下注成功',
-          text: `您已成功下注 ${this.betAmount} Time Coin 給玩家 ${this.formatWalletAddress(player.WalletAddress)}`
-        });
-      })
-
-    },
-    updateCountdown() {
-      const now = new Date();
-      const nextReset = new Date();
-      const dayOfWeek = now.getUTCDay();
-      const daysUntilMonday = (8 - dayOfWeek) % 7;
-      nextReset.setUTCDate(now.getUTCDate() + daysUntilMonday);
-      nextReset.setUTCHours(0, 0, 0, 0);
-
-      const diff = nextReset - now;
-      const totalHours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = String(Math.floor((diff / (1000 * 60)) % 60)).padStart(2, '0');
-      const seconds = String(Math.floor((diff / 1000) % 60)).padStart(2, '0');
-
-      this.countdown = `${totalHours}:${minutes}:${seconds}`;
-    }
-  }
+const formatWalletAddress = (address) => {
+  if (!address) return '';
+  return `${address.slice(0, 3)}...${address.slice(-3)}`;
 };
+
+const placeBet = async (player) => {
+  const { value: betAmount } = await Swal.fire({
+    title: '請輸入下注金額',
+    input: 'number',
+    html: `
+      <strong>注意</strong>
+      <ul style="text-align: left; font-size: 18px;">
+        <li>✅ 最少 <strong>500</strong> Time Coin</li>
+        <li>✅ 必須是 <strong>正整數</strong></li>
+        <li>✅ 不得超過您擁有的 <strong>${props.userTimeCoin}</strong> Time Coin</li>
+        <li>每周一 UTC 00:00 重置並計算獎勵</li>
+      </ul>
+    `,
+    inputPlaceholder: '輸入 Time Coin',
+    inputAttributes: { min: 500, step: 1 },
+    showCancelButton: true
+  });
+
+  if (!betAmount) return;
+
+  const parsedAmount = parseInt(betAmount, 10);
+  if (isNaN(parsedAmount) || parsedAmount < 500 || parsedAmount > props.userTimeCoin) {
+    Swal.fire({
+      icon: 'error',
+      title: '無效的下注金額',
+      text: '請確認金額必須是正整數，最少 500 並且不能超過您所持有的 Time Coin。'
+    });
+    return;
+  }
+
+  const currentDate = new Date();
+  const year = currentDate.getFullYear();
+  const firstDayOfYear = new Date(year, 0, 1);
+  const pastDaysOfYear = Math.floor((currentDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
+  const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`;
+
+  await axios.post(`${import.meta.env.VITE_API_URL}/leaderboard-add-bet`, {
+    fromWalletAddress: props.userWalletAddress,
+    toWalletAddress: player.WalletAddress,
+    betAmount: parsedAmount,
+    yearWeek
+  }).then(rs => {
+    emit('bet-complete', { newUserTimeCoin: rs.data.userTimeCoin, newLeaderboard: rs.data.leaderboard });
+    Swal.fire({
+      icon: 'success',
+      title: '下注成功',
+      text: `您已成功下注 ${parsedAmount} Time Coin 給玩家 ${formatWalletAddress(player.WalletAddress)}`
+    });
+  });
+};
+
+const updateCountdown = () => {
+  const now = new Date();
+  const nextReset = new Date();
+  const dayOfWeek = now.getUTCDay();
+  const daysUntilMonday = (8 - dayOfWeek) % 7;
+  nextReset.setUTCDate(now.getUTCDate() + daysUntilMonday);
+  nextReset.setUTCHours(0, 0, 0, 0);
+  const diff = nextReset - now;
+  countdown.value = `${Math.floor(diff / (1000 * 60 * 60))}:${String(Math.floor((diff / (1000 * 60)) % 60)).padStart(2, '0')}:${String(Math.floor((diff / 1000) % 60)).padStart(2, '0')}`;
+};
+
+onMounted(() => {
+  updateCountdown();
+  intervalId = setInterval(updateCountdown, 1000);
+});
+
+onBeforeUnmount(() => {
+  clearInterval(intervalId);
+});
 </script>
 
 <style scoped>

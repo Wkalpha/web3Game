@@ -1,6 +1,8 @@
 import { createApp } from 'vue';
 import App from './App.vue';
+import router from './router';
 import Toast from "vue-toastification";
+import { createPinia } from 'pinia'
 import "vue-toastification/dist/index.css";
 
 // 建立 Vue 應用
@@ -21,6 +23,7 @@ const options = {
     rtl: false
 };
 app.use(Toast, options);
-
+app.use(createPinia());
+app.use(router);
 // 掛載應用到指定的 DOM 節點
 app.mount('#app');
