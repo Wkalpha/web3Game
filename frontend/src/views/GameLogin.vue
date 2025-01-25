@@ -1,7 +1,7 @@
 <template>
     <h1>TickTock Battle</h1>
-    <button v-if="!login" @click="authStore.connectWallet()">Connect Wallet</button>
-    <div v-if="!login">
+    <button v-if="!gameStore.login" @click="gameStore.connectWallet()">Connect Wallet</button>
+    <div v-if="!gameStore.login">
         <p>Join us！</p>
         <a href="https://discord.gg/gxBTtEWb" target="_blank"
             style="display: inline-flex; align-items: center; text-decoration: none;">
@@ -12,15 +12,15 @@
 </template>
 
 <script setup>
-import { useAuthStore } from '@/stores/auth';
+import { useGameStore } from '@/stores/game';
 import { watch } from 'vue';
 import { useRouter } from 'vue-router';
 
-const authStore = useAuthStore();
+const gameStore = useGameStore();
 const router = useRouter();
 
 // 監聽 login 狀態，若變為 true，跳轉到 index 頁面
-watch(() => authStore.login, (newValue) => {
+watch(() => gameStore.login, (newValue) => {
     if (newValue) {
         router.push('/index');
     }
@@ -28,7 +28,6 @@ watch(() => authStore.login, (newValue) => {
 </script>
 
 <style scoped>
-/* 炫酷的標題 */
 h1 {
     font-size: 3rem;
     font-weight: bold;
@@ -39,7 +38,6 @@ h1 {
     animation: glow 1.5s infinite alternate;
 }
 
-/* 按鈕樣式 */
 button {
     background: linear-gradient(90deg, #ff416c, #ff4b2b);
     color: #fff;

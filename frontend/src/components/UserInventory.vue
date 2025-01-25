@@ -1,16 +1,16 @@
 <template>
     <div>
-        <button @click="openModal">包包</button>
+        <button class="open-modal-btn" @click="openModal">包包</button>
 
         <!-- Modal -->
         <div v-if="isModalVisible" class="modal-overlay">
             <div class="modal">
                 <div class="modal-header">
                     <h3>包包</h3>
-                    <button @click="closeModal">X</button>
+                    <button class="close-btn" @click="isModalVisible = false">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <table v-if="inventory && inventory.length > 0">
+                    <table v-if="gameStore.inventory && gameStore.inventory.length > 0" class="inventory-table">
                         <thead>
                             <tr>
                                 <th>物品名稱</th>
@@ -20,153 +20,165 @@
                         <tbody>
                             <tr v-for="item in filteredInventory" :key="item.InventoryId">
                                 <td>{{ item.ItemName }}</td>
-                                <td>{{ item.Quantity }}<button
-                                        v-if="item.ItemType == 'Currency' || item.ItemType == 'Ticket' || item.ItemType == 'PermanentBuff'"
-                                        @click="useInventory(item.ItemId, item.ItemType)">使用</button>
+                                <td>
+                                    {{ item.Quantity }}
+                                    <button v-if="['Currency', 'Ticket', 'PermanentBuff'].includes(item.ItemType)"
+                                        class="use-btn" @click="useInventory(item.ItemId, item.ItemType)">
+                                        使用
+                                    </button>
                                 </td>
-
                             </tr>
                         </tbody>
                     </table>
-                    <p v-else>尚無道具資料。</p>
+                    <p v-else class="no-items">尚無道具資料。</p>
                 </div>
             </div>
         </div>
     </div>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { useGameStore } from '@/stores/game';
 
-export default {
-    name: 'UserInventory',
-    props: {
-        walletAddress: {
-            type: String,
-            required: true
-        },
-    },
-    data() {
-        return {
-            inventory: null, // 保存物品數據
-            isModalVisible: false, // 控制 Modal 顯示
-        };
-    },
-    mounted() {
-        this.getInventory();
-    },
-    computed: {
-        filteredInventory() {
-            return this.inventory.filter(item => item.Quantity > 0);
-        }
-    },
-    methods: {
-        async useInventory(itemId, itemType) {
-            const payload = {
-                walletAddress: this.walletAddress,
-                itemId
-            };
-            await axios.post(`${process.env.VUE_APP_API_URL}/use-item`, payload).then(rs => {
-                if (itemType == 'Ticket') {
+const gameStore = useGameStore();
+
+const isModalVisible = ref(false);
+
+const filteredInventory = computed(() => gameStore.inventory.filter(item => item.Quantity > 0));
+
+const useInventory = async (itemId, itemType) => {
+    const payload = { walletAddress: gameStore.walletAddress, itemId };
+    await axios.post(`${process.env.VUE_APP_API_URL}/use-item`, payload).then(rs => {
+        if (itemType === 'Ticket') {
+            Swal.fire({
+                title: '抽獎中',
+                html: `<h2>正在抽獎...</h2>`,
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: async () => {
+                    Swal.showLoading();
+                    const finalPrize = rs.data.prize;
                     Swal.fire({
-                        title: '抽獎中',
-                        html: `<h2>正在抽獎...</h2>`,
-                        allowOutsideClick: false,
-                        showConfirmButton: false,
-                        didOpen: async () => {
-                            Swal.showLoading();
-
-                            const finalPrize = rs.data.prize;
-
-                            // SweetAlert 顯示抽中的獎品
-                            Swal.fire({
-                                title: '恭喜！',
-                                html: `<h2>抽中獎品：${finalPrize.ItemName}</h2><p>數量：${finalPrize.ItemValue}</p>`,
-                                icon: 'success',
-                                confirmButtonText: '確定',
-                            });
-                        },
+                        title: '恭喜！',
+                        html: `<h2>抽中獎品：${finalPrize.ItemName}</h2><p>數量：${finalPrize.ItemValue}</p>`,
+                        icon: 'success',
+                        confirmButtonText: '確定',
                     });
-                }
+                },
             });
-            this.getInventory();
-        },
-        async openModal() {
-            this.isModalVisible = true; // 打開 Modal
-            await this.getInventory();
-        },
-        async getInventory() {
-            const payload = {
-                walletAddress: this.walletAddress,
-            };
-
-            try {
-                const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, payload);
-                this.inventory = response.data.inventory || [];
-                this.$emit('get-inventory', this.inventory);
-            } catch (error) {
-                console.error('獲取物品清單失敗:', error);
-                alert('獲取物品清單失敗，請稍後再試');
-            }
-        },
-        closeModal() {
-            this.isModalVisible = false; // 關閉 Modal
-        },
-        formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleString(); // 本地化日期格式
-        },
-    },
+        }
+    });
+    await gameStore.getInventory();
 };
+
+const openModal = async () => {
+    isModalVisible.value = true;
+    await gameStore.getInventory();
+};
+
+onMounted(async () => {
+    await gameStore.getInventory();
+});
 </script>
 
 <style scoped>
+.open-modal-btn {
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.3s;
+}
+
+.open-modal-btn:hover {
+    transform: scale(1.05);
+}
+
 .modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.8);
     display: flex;
     justify-content: center;
     align-items: center;
+    z-index: 1000;
 }
 
 .modal {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    width: 80%;
+    background: rgba(50, 50, 50, 0.95);
+    padding: 25px;
+    border-radius: 15px;
+    width: 60%;
     max-height: 80%;
     overflow-y: auto;
+    box-shadow: 0 0 20px rgba(255, 71, 87, 0.7);
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    color: #fff;
 }
 
-.modal-body {
-    overflow-y: auto;
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #ff4b2b;
 }
 
-table {
+.inventory-table {
     width: 100%;
     border-collapse: collapse;
 }
 
-th,
-td {
-    border: 1px solid #ccc;
-    padding: 8px;
+.inventory-table th, .inventory-table td {
+    border: 1px solid #ff4b2b;
+    padding: 12px;
     text-align: left;
+    color: #fff;
 }
 
-th {
-    background-color: #f4f4f4;
+.inventory-table th {
+    background: #ff416c;
+}
+
+.use-btn {
+    background: #ff4b2b;
+    color: #fff;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.no-items {
+    text-align: center;
+    color: #ddd;
+    font-size: 20px;
 }
 </style>

@@ -20,9 +20,9 @@
 <script setup>
 import axios from 'axios';
 import { ref, watch, onMounted } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+import { useGameStore } from '@/stores/game';
 
-const authStore = useAuthStore();
+const gameStore = useGameStore();
 const quests = ref([]);
 const refreshKey = ref(0);
 
@@ -39,7 +39,7 @@ onMounted(async () => {
 const fetchUserDailyQuest = async () => {
     try {
         const response = await axios.post(`${process.env.VUE_APP_API_URL}/daily-quests`, {
-            walletAddress: authStore.walletAddress
+            walletAddress: gameStore.walletAddress
         });
         quests.value = response.data;
     } catch (error) {
@@ -50,7 +50,7 @@ const fetchUserDailyQuest = async () => {
 const claimReward = async (questId) => {
     try {
         await axios.post(`${process.env.VUE_APP_API_URL}/daily-quests/claim`, {
-            walletAddress: authStore.walletAddress,
+            walletAddress: gameStore.walletAddress,
             questId
         });
         await fetchUserDailyQuest();  // 重新獲取任務以更新狀態

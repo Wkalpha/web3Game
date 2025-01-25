@@ -1,10 +1,12 @@
 <template>
-  <div class="leaderboard-overlay" v-if="isVisible">
+  <button @click="openLeaderboard(false)">上週排行榜</button>
+  <button @click="openLeaderboard(true)">本週排行榜</button>
+  <div class="leaderboard-overlay" v-if="show">
     <div class="leaderboard-content">
       <div class="modal-header">
         <h2 v-if="currentWeek">本周排行榜</h2>
         <h2 v-else>上週排行榜</h2>
-        <button @click="closeLeaderboard">X</button>
+        <button @click="show = false">X</button>
       </div>
 
       <h3 v-if="currentWeek">(結算時間: {{ countdown }})</h3>
@@ -14,7 +16,7 @@
 
       <!-- 顯示排行榜數據 -->
       <ul class="leaderboard-list" v-else>
-        <li v-for="(player, index) in players" :key="index">
+        <li v-for="(player, index) in gameStore.leaderboardPlayers" :key="index">
           <span class="rank">R{{ index + 1 }}</span>
           <span class="player-name" :class="{ 'self-player': isSelf(player.WalletAddress) }">
             {{ formatWalletAddress(player.WalletAddress) }}
@@ -29,29 +31,34 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, defineProps, defineEmits } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { useGameStore } from '@/stores/game';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 
-const props = defineProps({
-  isVisible: Boolean,
-  players: Array,
-  isLoading: Boolean,
-  userWalletAddress: String,
-  userTimeCoin: Number,
-  currentWeek: Boolean
-});
+const gameStore = useGameStore();
 
-const emit = defineEmits(['closeLeaderboard', 'bet-complete']);
+const show = ref(false);
+const currentWeek = ref();
+const isLoading = ref(false);
+
 const countdown = ref('');
 let intervalId;
 
-const isSelf = (walletAddress) => walletAddress === props.userWalletAddress;
+const isSelf = (walletAddress) => walletAddress === gameStore.walletAddress;
 
 const formatWalletAddress = (address) => {
   if (!address) return '';
   return `${address.slice(0, 3)}...${address.slice(-3)}`;
 };
+
+const openLeaderboard = async (currentOrLast) => {
+  isLoading.value = true;
+  currentWeek.value = currentOrLast;
+  show.value = true;
+  await gameStore.getLeaderboardPlayer(currentOrLast);
+  isLoading.value = false;
+}
 
 const placeBet = async (player) => {
   const { value: betAmount } = await Swal.fire({
@@ -62,7 +69,7 @@ const placeBet = async (player) => {
       <ul style="text-align: left; font-size: 18px;">
         <li>✅ 最少 <strong>500</strong> Time Coin</li>
         <li>✅ 必須是 <strong>正整數</strong></li>
-        <li>✅ 不得超過您擁有的 <strong>${props.userTimeCoin}</strong> Time Coin</li>
+        <li>✅ 不得超過您擁有的 <strong>${gameStore.userInfo.timeCoin}</strong> Time Coin</li>
         <li>每周一 UTC 00:00 重置並計算獎勵</li>
       </ul>
     `,
@@ -74,7 +81,7 @@ const placeBet = async (player) => {
   if (!betAmount) return;
 
   const parsedAmount = parseInt(betAmount, 10);
-  if (isNaN(parsedAmount) || parsedAmount < 500 || parsedAmount > props.userTimeCoin) {
+  if (isNaN(parsedAmount) || parsedAmount < 500 || parsedAmount > gameStore.userInfo.timeCoin) {
     Swal.fire({
       icon: 'error',
       title: '無效的下注金額',
@@ -90,19 +97,27 @@ const placeBet = async (player) => {
   const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
   const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`;
 
-  await axios.post(`${import.meta.env.VITE_API_URL}/leaderboard-add-bet`, {
-    fromWalletAddress: props.userWalletAddress,
-    toWalletAddress: player.WalletAddress,
-    betAmount: parsedAmount,
-    yearWeek
-  }).then(rs => {
-    emit('bet-complete', { newUserTimeCoin: rs.data.userTimeCoin, newLeaderboard: rs.data.leaderboard });
+  try {
+    await axios.post(`${process.env.VUE_APP_API_URL}/leaderboard-add-bet`, {
+      fromWalletAddress: gameStore.walletAddress,
+      toWalletAddress: player.WalletAddress,
+      betAmount: parsedAmount,
+      yearWeek
+    });
+
     Swal.fire({
       icon: 'success',
       title: '下注成功',
       text: `您已成功下注 ${parsedAmount} Time Coin 給玩家 ${formatWalletAddress(player.WalletAddress)}`
     });
-  });
+  } catch (error) {
+    console.error('下注失敗:', error);
+    Swal.fire({
+      icon: 'error',
+      title: '下注失敗',
+      text: '請稍後再試，或聯繫客服。'
+    });
+  }
 };
 
 const updateCountdown = () => {
@@ -164,7 +179,7 @@ onBeforeUnmount(() => {
   max-height: 80vh;
   width: 70%;
   overflow-y: auto;
-  background: white;
+  background: rgb(109, 170, 85);
 }
 
 .leaderboard-content::-webkit-scrollbar {
@@ -182,17 +197,22 @@ onBeforeUnmount(() => {
 
 .modal-header {
   display: flex;
-  position: relative; /* 讓子元素可以使用 absolute 定位 */
-  justify-content: center; /* 初始水平置中 */
+  position: relative;
+  /* 讓子元素可以使用 absolute 定位 */
+  justify-content: center;
+  /* 初始水平置中 */
   align-items: center;
   margin-bottom: 16px;
 }
 
 .modal-header button {
-  margin-left: auto; /* 推到最右 */
+  margin-left: auto;
+  /* 推到最右 */
   position: absolute;
-  right: 0; /* 固定到右側 */
-  top: 0; /* 固定到頂部 */
+  right: 0;
+  /* 固定到右側 */
+  top: 0;
+  /* 固定到頂部 */
 }
 
 /* 關閉按鈕 */

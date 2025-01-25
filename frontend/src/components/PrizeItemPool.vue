@@ -2,36 +2,35 @@
     <div class="prize-item-pool">
         <h1>抽獎</h1>
         <BigPrizeMarquee />
-        <div v-if="prizeItemPools.length === 0">加載中...</div>
+        <div v-if="prizeItemPools.length === 0" class="loading">加載中...</div>
         <div v-else>
             <div v-for="(prizeItemPool, index) in prizeItemPools" :key="index">
-                <button @click="openPrizeModal(prizeItemPool.PoolName, prizeItemPool.EntryFee)" class="draw-button">
+                <button @click="openPrizeModal(prizeItemPool.PoolName, prizeItemPool.EntryFee)"
+                    class="draw-button pulse">
                     {{ prizeItemPool.PoolName }} 獎池
                 </button>
             </div>
         </div>
-        <!-- Modal 彈窗 -->
         <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-            <div class="modal-content">
+            <div class="modal-content fade-in">
                 <h2>{{ selectedPoolName }} 獎池</h2>
                 <h2>抽一次 {{ prizeItemPoolEntryFee }} Time Coin</h2>
                 <h3>已累計 {{ userDrawCounter }} 抽</h3>
-                <button @click="drawPrize(selectedPoolName)" class="draw-button"
-                    :class="{ 'disabled-button': userTimeCoin < prizeItemPoolEntryFee }"
-                    :disabled="userTimeCoin < prizeItemPoolEntryFee">
+                <button @click="drawPrize(selectedPoolName)" class="draw-button shine"
+                    :class="{ 'disabled-button': gameStore.userInfo.timeCoin < prizeItemPoolEntryFee }"
+                    :disabled="gameStore.userInfo.timeCoin < prizeItemPoolEntryFee">
                     開始抽獎
                 </button>
-                <button @click="tendrawPrize(selectedPoolName)" class="draw-button"
-                    :class="{ 'disabled-button': userTimeCoin < prizeItemPoolEntryFee * 10 }"
-                    :disabled="userTimeCoin < prizeItemPoolEntryFee * 10">
+                <button @click="tendrawPrize(selectedPoolName)" class="draw-button shine"
+                    :class="{ 'disabled-button': gameStore.userInfo.timeCoin < prizeItemPoolEntryFee * 10 }"
+                    :disabled="gameStore.userInfo.timeCoin < prizeItemPoolEntryFee * 10">
                     10 連抽
                 </button>
-                <ul>
+                <ul class="prize-list">
                     <li v-for="(item, index) in prizeItems" :key="index">
                         <strong>{{ item.ItemName }}</strong> - 數量: {{ item.ItemValue }} - 機率: {{ item.DropRatePercent }}
                     </li>
                 </ul>
-                <!-- 新增的說明按鈕 -->
                 <button @click="showPrizeDescription">說明</button>
                 <button @click="closeModal">關閉</button>
             </div>
@@ -39,319 +38,196 @@
     </div>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import BigPrizeMarquee from './BigPrizeMarquee.vue';
+import { useGameStore } from '@/stores/game';
+const gameStore = useGameStore();
 
-export default {
-    name: 'PrizeItemPool',
-    components: {
-        BigPrizeMarquee
-    },
-    props: {
-        walletAddress: {
-            type: String,
-            required: true
-        },
-        userTimeCoin: {
-            type: Number,
-            required: true,
-        }
-    },
-    data() {
-        return {
-            prizeItemPools: [],
-            prizeItems: [],
-            showModal: false, // 控制 Modal 顯示
-            selectedPoolName: '', // 選中的獎池名稱
-            userDrawCounter: null, // 玩家累計對應獎池的抽獎次數
-            prizeItemPoolEntryFee: null, // 獎池抽獎費
-            guaranteeDraw: null, // 保底次數
-            bigPrize: null, // 大獎
-        };
-    },
-    mounted() {
-        this.getPrizeItemPool();
-    },
-    methods: {
-        // 打開 Modal 並加載對應獎品列表
-        async openPrizeModal(poolName, entryFee) {
-            this.selectedPoolName = poolName;
-            this.prizeItemPoolEntryFee = entryFee;
-            this.showModal = true;
-            await this.getPrizeItem(poolName); // 加載獎品列表
-        },
-        // 顯示說明
-        showPrizeDescription() {
-            Swal.fire({
-                title: '說明',
-                html: `
-                <p>1. 抽一次會消耗對應的 Time Coin。</p>
-                <p>2. 累計 ${this.guaranteeDraw} 抽必得 ${this.bigPrize.ItemName}。</p>
-                `,
-                icon: 'info',
-                confirmButtonText: '了解了',
-            });
-        },
-        // 關閉 Modal
-        closeModal() {
-            this.showModal = false;
-        },
-        async getPrizeItem(poolName) {
-            //開啟相對應獎池
-            const payload = {
-                poolName: poolName,
-                walletAddress: this.walletAddress
-            }
-            await axios.post(`${process.env.VUE_APP_API_URL}/get-prize-item`, payload).then(rs => {
-                this.prizeItems = rs.data.prizeItems;
-                this.bigPrize = rs.data.bigPrize;
-                this.guaranteeDraw = rs.data.guaranteeDraw;
-                this.userDrawCounter = rs.data.userDrawCounter;
-            });
-        },
-        async getPrizeItemPool() {
-            await axios.get(`${process.env.VUE_APP_API_URL}/get-prize-item-pool`).then(rs => {
-                this.prizeItemPools = rs.data.prizeItemPool;
-            });
-        },
-        async drawPrize(poolName) {
-            try {
-                const payload = {
-                    poolName,
-                    walletAddress: this.walletAddress
-                };
+const prizeItemPools = ref([]);
+const prizeItems = ref([]);
+const showModal = ref(false);
+const selectedPoolName = ref('');
+const userDrawCounter = ref(null);
+const prizeItemPoolEntryFee = ref(null);
+const guaranteeDraw = ref(null);
+const bigPrize = ref(null);
 
-                // 1. 開始輪詢動畫
-                const interval = setInterval(() => {
-                    const randomIndex = Math.floor(Math.random() * this.prizeItems.length);
-                    Swal.update({
-                        html: `<h2>正在抽獎...</h2><p>獎品：${this.prizeItems[randomIndex].ItemName}</p>`,
-                    });
-                }, 100);
+const getPrizeItemPool = async () => {
+    const response = await axios.get(`${process.env.VUE_APP_API_URL}/get-prize-item-pool`);
+    prizeItemPools.value = response.data.prizeItemPool;
+};
 
-                // 2. 顯示 SweetAlert 的 loading 狀態
-                Swal.fire({
-                    title: '抽獎中',
-                    html: `<h2>正在抽獎...</h2>`,
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: async () => {
-                        Swal.showLoading();
+const openPrizeModal = async (poolName, entryFee) => {
+    selectedPoolName.value = poolName;
+    prizeItemPoolEntryFee.value = entryFee;
+    showModal.value = true;
+    await getPrizeItem(poolName);
+};
 
-                        // 3. 發送請求，模擬等待後端返回
-                        const response = await axios.post(`${process.env.VUE_APP_API_URL}/draw-prize`, payload);
-                        const finalPrize = response.data.prize;
-                        this.userDrawCounter = response.data.userDrawCounter;
+const getPrizeItem = async (poolName) => {
+    const payload = { poolName, walletAddress: gameStore.walletAddress };
+    const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-prize-item`, payload);
+    prizeItems.value = response.data.prizeItems;
+    bigPrize.value = response.data.bigPrize;
+    guaranteeDraw.value = response.data.guaranteeDraw;
+    userDrawCounter.value = response.data.userDrawCounter;
+};
 
-                        // 4. 停止輪詢動畫
-                        clearInterval(interval);
+const showPrizeDescription = () => {
+    Swal.fire({
+        title: '說明',
+        html: `<p>1. 抽一次會消耗對應的 Time Coin。</p><p>2. 累計 ${guaranteeDraw.value} 抽必得 ${bigPrize.value.ItemName}。</p>`,
+        icon: 'info',
+        confirmButtonText: '了解了',
+    });
+};
 
-                        // 5. 更新 SweetAlert 顯示抽中的獎品
-                        Swal.fire({
-                            title: '恭喜！',
-                            html: `<h2>抽中獎品：${finalPrize.ItemName}</h2><p>數量：${finalPrize.ItemValue}</p>`,
-                            icon: 'success',
-                            confirmButtonText: '確定',
-                        });
-                    },
-                });
-            } catch (error) {
-                console.error('抽獎失敗:', error);
+const closeModal = () => {
+    showModal.value = false;
+};
 
-                // 顯示錯誤提示
-                Swal.fire({
-                    title: '抽獎失敗',
-                    text: '請稍後再試。',
-                    icon: 'error',
-                    confirmButtonText: '確定',
-                });
-            }
-        },
-        async tendrawPrize(poolName) {
-            try {
-                const payload = {
-                    poolName,
-                    walletAddress: this.walletAddress
-                };
-
-                // 1. 開始輪詢動畫
-                const interval = setInterval(() => {
-                    const randomIndex = Math.floor(Math.random() * this.prizeItems.length);
-                    Swal.update({
-                        html: `<h2>正在抽獎...</h2><p>獎品：${this.prizeItems[randomIndex].ItemName}</p>`,
-                    });
-                }, 100);
-
-                // 2. 顯示 SweetAlert 的 loading 狀態
-                Swal.fire({
-                    title: '抽獎中',
-                    html: `<h2>正在抽獎...</h2>`,
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: async () => {
-                        Swal.showLoading();
-
-                        // 3. 發送請求，模擬等待後端返回
-                        const response = await axios.post(`${process.env.VUE_APP_API_URL}/ten-draw-prize`, payload);
-                        const finalPrize = response.data.prizes;
-                        this.userDrawCounter = response.data.userDrawCounter;
-
-                        // 4. 停止輪詢動畫
-                        clearInterval(interval);
-
-                        // 5. 顯示 10 連抽結果
-                        let resultHtml = '<h2>抽獎結果</h2>';
-                        finalPrize.forEach((prize) => {
-                            resultHtml += `<p>${prize.ItemName} x ${prize.ItemValue}</p>`;
-                        });
-
-                        Swal.fire({
-                            title: '恭喜！',
-                            html: resultHtml,
-                            icon: 'success',
-                            confirmButtonText: '確定',
-                        });
-                    },
-                });
-            } catch (error) {
-                console.error('抽獎失敗:', error);
-
-                // 顯示錯誤提示
-                Swal.fire({
-                    title: '抽獎失敗',
-                    text: '請稍後再試。',
-                    icon: 'error',
-                    confirmButtonText: '確定',
-                });
-            }
-        }
+const drawPrize = async (poolName) => {
+    try {
+        const payload = { poolName, walletAddress: gameStore.walletAddress };
+        Swal.fire({ title: '抽獎中', text: '請稍候...', allowOutsideClick: false, showConfirmButton: false });
+        const response = await axios.post(`${process.env.VUE_APP_API_URL}/draw-prize`, payload);
+        userDrawCounter.value = response.data.userDrawCounter;
+        Swal.fire({ title: '恭喜！', text: `抽中 ${response.data.prize.ItemName}`, icon: 'success' });
+    } catch (error) {
+        Swal.fire({ title: '錯誤', text: '抽獎失敗，請稍後再試。', icon: 'error' });
     }
 };
+
+const tendrawPrize = async (poolName) => {
+    try {
+        const payload = {
+            poolName,
+            walletAddress: gameStore.walletAddress
+        };
+
+        // 1. 開始輪詢動畫
+        const interval = setInterval(() => {
+            const randomIndex = Math.floor(Math.random() * prizeItems.value.length);
+            Swal.update({
+                html: `<h2>正在抽獎...</h2><p>獎品：${prizeItems.value[randomIndex].ItemName}</p>`,
+            });
+        }, 100);
+
+        // 2. 顯示 SweetAlert 的 loading 狀態
+        Swal.fire({
+            title: '抽獎中',
+            html: `<h2>正在抽獎...</h2>`,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: async () => {
+                Swal.showLoading();
+
+                // 3. 發送請求，模擬等待後端返回
+                const response = await axios.post(`${process.env.VUE_APP_API_URL}/ten-draw-prize`, payload);
+                const finalPrize = response.data.prizes;
+                userDrawCounter.value = response.data.userDrawCounter;
+
+                // 4. 停止輪詢動畫
+                clearInterval(interval);
+
+                // 5. 顯示 10 連抽結果
+                let resultHtml = '<h2>抽獎結果</h2>';
+                finalPrize.forEach((prize) => {
+                    resultHtml += `<p>${prize.ItemName} x ${prize.ItemValue}</p>`;
+                });
+
+                Swal.fire({
+                    title: '恭喜！',
+                    html: resultHtml,
+                    icon: 'success',
+                    confirmButtonText: '確定',
+                });
+            },
+        });
+    } catch (error) {
+        console.error('抽獎失敗:', error);
+
+        // 顯示錯誤提示
+        Swal.fire({
+            title: '抽獎失敗',
+            text: '請稍後再試。',
+            icon: 'error',
+            confirmButtonText: '確定',
+        });
+    }
+};
+
+onMounted(() => {
+    getPrizeItemPool();
+});
 </script>
 
 <style scoped>
 .prize-item-pool {
     text-align: center;
-}
-
-/* 抽獎按鈕樣式 */
-.draw-button {
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 10px 20px;
-    font-size: 18px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    width: 80%;
-    /* 使用百分比確保響應式 */
-    max-width: 300px;
-    /* 限制按鈕最大寬度 */
-    margin: 10px auto;
-    /* 居中對齊 */
-    display: block;
-}
-
-.draw-button:hover {
-    background-color: #45a049;
-}
-
-.draw-button:disabled,
-.disabled-button:hover {
-    background-color: gray;
-    /* 禁用時按鈕的背景色 */
-    cursor: not-allowed;
-    /* 禁用時改變游標 */
-    opacity: 0.6;
-    /* 禁用時的透明度 */
-}
-
-.drawn-prize {
-    margin-top: 20px;
-    font-size: 20px;
-    font-weight: bold;
-}
-
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 8px;
     padding: 20px;
-    width: 80%;
-    max-width: 500px;
-    text-align: center;
-    position: relative;
+    background: #121212;
+    color: #fff;
+    font-family: 'Arial', sans-serif;
 }
 
-.modal-content h2 {
+.title {
+    font-size: 2rem;
+    text-transform: uppercase;
+    font-weight: bold;
     margin-bottom: 20px;
 }
 
-.modal-content ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+.draw-button {
+    background: linear-gradient(90deg, #6a11cb, #2575fc);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 15px 30px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.3s;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-.modal-content li {
-    margin: 10px 0;
+.draw-button:hover {
+    transform: scale(1.05);
 }
 
-/* 響應式設計 */
-@media (max-width: 768px) {
-    .draw-button {
-        font-size: 16px;
-        padding: 8px 16px;
-        width: 90%;
-    }
-
-    .modal-content {
-        width: 95%;
-        padding: 15px;
-    }
-
-    .modal-content h2 {
-        font-size: 1.3rem;
-    }
-
-    .modal-content li {
-        font-size: 1rem;
-    }
+.modal-overlay {
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-@media (max-width: 480px) {
-    .draw-button {
-        font-size: 14px;
-        padding: 8px 12px;
-        width: 100%;
-    }
+.modal-content {
+    background: #fff;
+    color: #000;
+    border-radius: 10px;
+    padding: 30px;
+    width: 80%;
+    max-width: 500px;
+    text-align: center;
+}
 
-    .modal-content {
-        width: 100%;
-        padding: 10px;
-    }
+.info-button,
+.close-button {
+    background: #333;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    margin-top: 15px;
+    cursor: pointer;
+}
 
-    .modal-content h2 {
-        font-size: 1.2rem;
-    }
-
-    .modal-content li {
-        font-size: 0.9rem;
-    }
+.info-button:hover,
+.close-button:hover {
+    background: #555;
 }
 </style>

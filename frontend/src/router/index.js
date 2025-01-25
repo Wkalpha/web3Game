@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import GameIndex from '@/views/GameIndex.vue';
 import GameLogin from '@/views/GameLogin.vue';
-import { useAuthStore } from '@/stores/auth';
+import { useGameStore } from '@/stores/game';
 
 const routes = [
   {
@@ -24,8 +24,8 @@ const router = createRouter({
 
 // 守衛：未登入時導回主頁
 router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore();
-  if (to.meta.requiresAuth && !authStore.login) {
+  const gameStore = useGameStore();
+  if (to.meta.requiresAuth && !gameStore.login) {
     next('/');
   } else {
     next();
