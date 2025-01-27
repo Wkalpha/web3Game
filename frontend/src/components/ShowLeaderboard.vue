@@ -1,49 +1,18 @@
 <template>
-  <button @click="openLeaderboard(false)">上週排行榜</button>
-  <button @click="openLeaderboard(true)">本週排行榜</button>
-  <div class="leaderboard-overlay" v-if="show">
-    <div class="leaderboard-content">
-      <div class="modal-header">
-        <h2 v-if="currentWeek">本周排行榜</h2>
-        <h2 v-else>上週排行榜</h2>
-        <button @click="show = false">X</button>
-      </div>
-
-      <h3 v-if="currentWeek">(結算時間: {{ countdown }})</h3>
-
-      <!-- 如果正在加載，則顯示加載中 -->
-      <div v-if="isLoading" class="loading-message">數據加載中，請稍候...</div>
-
-      <!-- 顯示排行榜數據 -->
-      <ul class="leaderboard-list" v-else>
-        <li v-for="(player, index) in gameStore.leaderboardPlayers" :key="index">
-          <span class="rank">R{{ index + 1 }}</span>
-          <span class="player-name" :class="{ 'self-player': isSelf(player.WalletAddress) }">
-            {{ formatWalletAddress(player.WalletAddress) }}
-            <span v-if="isSelf(player.WalletAddress)" class="self-tag">(自己)</span>
-          </span>
-          <button v-if="currentWeek" class="bet-button" @click="placeBet(player)">下注{{ player.BetAmount }}</button>
-          <span class="player-score">{{ player.Scores }}分</span>
-        </li>
-      </ul>
-    </div>
+  <div class="button-container">
+    <button class="tech-button" @click="openLeaderboard(false)">上週排行榜</button>
+    <button class="tech-button" @click="openLeaderboard(true)">本週排行榜</button>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref } from 'vue';
 import { useGameStore } from '@/stores/game';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 
 const gameStore = useGameStore();
-
-const show = ref(false);
-const currentWeek = ref();
-const isLoading = ref(false);
-
-const countdown = ref('');
-let intervalId;
+const currentWeek = ref(false);
 
 const isSelf = (walletAddress) => walletAddress === gameStore.walletAddress;
 
@@ -53,24 +22,80 @@ const formatWalletAddress = (address) => {
 };
 
 const openLeaderboard = async (currentOrLast) => {
-  isLoading.value = true;
   currentWeek.value = currentOrLast;
-  show.value = true;
-  await gameStore.getLeaderboardPlayer(currentOrLast);
-  isLoading.value = false;
-}
+  try {
+    await gameStore.getLeaderboardPlayer(currentOrLast);
 
-const placeBet = async (player) => {
+    Swal.fire({
+      title: currentOrLast ? '本週排行榜' : '上週排行榜',
+      html: `
+        <div class="leaderboard-modal">
+          ${currentOrLast ? `<h3 id="countdown">(結算時間: ${getCountdown()})</h3>` : ''}
+          <div class="loading-message" id="loading">數據加載中，請稍候...</div>
+          <ul class="leaderboard-list" id="leaderboard-content" style="display: none;">
+            ${gameStore.leaderboardPlayers.map((player, index) => `
+              <li>
+                <span class="rank">R${index + 1}</span>
+                <span class="player-name ${isSelf(player.WalletAddress) ? 'self-player' : ''}">
+                  ${formatWalletAddress(player.WalletAddress)}
+                  ${isSelf(player.WalletAddress) ? '<span class="self-tag">(自己)</span>' : ''}
+                </span>
+                ${currentOrLast ? `<button class="bet-button" onclick="window.placeBet('${player.WalletAddress}')">下注${player.BetAmount}</button>` : ''}
+                <span class="player-score">${player.Scores}分</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `,
+      showCloseButton: true,
+      showConfirmButton: false,
+      didOpen: () => {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('leaderboard-content').style.display = 'block';
+        if (currentOrLast) {
+          updateCountdownInterval();
+        }
+      },
+      willClose: () => {
+        clearInterval(countdownInterval);
+      }
+    });
+  } catch (error) {
+    Swal.fire('錯誤', '加載排行榜失敗，請稍後重試', 'error');
+  }
+};
+
+let countdownInterval;
+const updateCountdownInterval = () => {
+  countdownInterval = setInterval(() => {
+    const countdownElement = document.getElementById('countdown');
+    if (countdownElement) {
+      countdownElement.innerText = `(結算時間: ${getCountdown()})`;
+    } else {
+      clearInterval(countdownInterval);
+    }
+  }, 1000);
+};
+
+
+const getCountdown = () => {
+  const now = new Date();
+  const nextReset = new Date();
+  nextReset.setUTCDate(now.getUTCDate() + ((1 - now.getUTCDay() + 7) % 7 || 7));
+  nextReset.setUTCHours(0, 0, 0, 0);
+  const diff = Math.max(nextReset - now, 0);
+  return `${Math.floor(diff / (1000 * 60 * 60))}:${String(Math.floor((diff / (1000 * 60)) % 60)).padStart(2, '0')}:${String(Math.floor((diff / 1000) % 60)).padStart(2, '0')}`;
+};
+
+window.placeBet = async (walletAddress) => {
   const { value: betAmount } = await Swal.fire({
     title: '請輸入下注金額',
     input: 'number',
     html: `
-      <strong>注意</strong>
       <ul style="text-align: left; font-size: 18px;">
         <li>✅ 最少 <strong>500</strong> Time Coin</li>
         <li>✅ 必須是 <strong>正整數</strong></li>
         <li>✅ 不得超過您擁有的 <strong>${gameStore.userInfo.timeCoin}</strong> Time Coin</li>
-        <li>每周一 UTC 00:00 重置並計算獎勵</li>
       </ul>
     `,
     inputPlaceholder: '輸入 Time Coin',
@@ -79,189 +104,151 @@ const placeBet = async (player) => {
   });
 
   if (!betAmount) return;
-
   const parsedAmount = parseInt(betAmount, 10);
   if (isNaN(parsedAmount) || parsedAmount < 500 || parsedAmount > gameStore.userInfo.timeCoin) {
-    Swal.fire({
-      icon: 'error',
-      title: '無效的下注金額',
-      text: '請確認金額必須是正整數，最少 500 並且不能超過您所持有的 Time Coin。'
-    });
+    Swal.fire('無效的下注金額', '請確認金額必須是正整數，最少 500 並且不能超過您所持有的 Time Coin。', 'error');
     return;
   }
-
-  const currentDate = new Date();
-  const year = currentDate.getFullYear();
-  const firstDayOfYear = new Date(year, 0, 1);
-  const pastDaysOfYear = Math.floor((currentDate - firstDayOfYear) / (24 * 60 * 60 * 1000));
-  const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-  const yearWeek = `${year}${weekNumber.toString().padStart(2, '0')}`;
 
   try {
     await axios.post(`${process.env.VUE_APP_API_URL}/leaderboard-add-bet`, {
       fromWalletAddress: gameStore.walletAddress,
-      toWalletAddress: player.WalletAddress,
-      betAmount: parsedAmount,
-      yearWeek
+      toWalletAddress: walletAddress,
+      betAmount: parsedAmount
     });
 
-    Swal.fire({
-      icon: 'success',
-      title: '下注成功',
-      text: `您已成功下注 ${parsedAmount} Time Coin 給玩家 ${formatWalletAddress(player.WalletAddress)}`
-    });
+    Swal.fire('下注成功', `已成功下注 ${parsedAmount} Time Coin`, 'success');
   } catch (error) {
-    console.error('下注失敗:', error);
-    Swal.fire({
-      icon: 'error',
-      title: '下注失敗',
-      text: '請稍後再試，或聯繫客服。'
-    });
+    Swal.fire('下注失敗', '請稍後再試，或聯繫客服。', 'error');
   }
 };
-
-const updateCountdown = () => {
-  const now = new Date();
-  const nextReset = new Date();
-  const dayOfWeek = now.getUTCDay();
-  const daysUntilMonday = (8 - dayOfWeek) % 7;
-  nextReset.setUTCDate(now.getUTCDate() + daysUntilMonday);
-  nextReset.setUTCHours(0, 0, 0, 0);
-  const diff = nextReset - now;
-  countdown.value = `${Math.floor(diff / (1000 * 60 * 60))}:${String(Math.floor((diff / (1000 * 60)) % 60)).padStart(2, '0')}:${String(Math.floor((diff / 1000) % 60)).padStart(2, '0')}`;
-};
-
-onMounted(() => {
-  updateCountdown();
-  intervalId = setInterval(updateCountdown, 1000);
-});
-
-onBeforeUnmount(() => {
-  clearInterval(intervalId);
-});
 </script>
 
 <style scoped>
-/* 覆蓋全螢幕的背景 */
-.leaderboard-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-/* 排行榜列表 */
-.leaderboard-list {
+.leaderboard-modal ul {
   list-style: none;
   padding: 0;
-  margin: 0;
 }
-
-.leaderboard-list li {
-  display: flex;
-  justify-content: space-between;
+.leaderboard-modal li {
   padding: 10px;
   border-bottom: 1px solid #ccc;
-}
-
-.leaderboard-list li:last-child {
-  border-bottom: none;
-}
-
-/* 排行榜內容區域 */
-.leaderboard-content {
-  max-height: 80vh;
-  width: 70%;
-  overflow-y: auto;
-  background: rgb(109, 170, 85);
-}
-
-.leaderboard-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.leaderboard-content::-webkit-scrollbar-thumb {
-  background-color: #888;
-  border-radius: 4px;
-}
-
-.leaderboard-content::-webkit-scrollbar-thumb:hover {
-  background-color: #555;
-}
-
-.modal-header {
   display: flex;
-  position: relative;
-  /* 讓子元素可以使用 absolute 定位 */
-  justify-content: center;
-  /* 初始水平置中 */
-  align-items: center;
-  margin-bottom: 16px;
+  justify-content: space-between;
 }
-
-.modal-header button {
-  margin-left: auto;
-  /* 推到最右 */
-  position: absolute;
-  right: 0;
-  /* 固定到右側 */
-  top: 0;
-  /* 固定到頂部 */
-}
-
-/* 關閉按鈕 */
-.close-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background-color: #ff4d4f;
+.bet-button {
+  padding: 5px 10px;
+  background-color: #4CAF50;
+  color: white;
   border: none;
-  color: #fff;
-  font-size: 18px;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
   cursor: pointer;
-  transition: all 0.3s ease;
 }
 
-.rank {
-  font-weight: bold;
-  color: #333;
+.bet-button:hover {
+  background-color: #45a049;
 }
 
-.player-name {
-  flex: 1;
-  text-align: left;
-  padding-left: 10px;
+.button-container {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin: 2rem 0;
+  flex-wrap: wrap;
 }
 
-.player-score {
-  color: #ff4d4f;
-  font-weight: bold;
+.tech-button {
+  position: relative;
+  padding: 1rem 2.2rem;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, 
+    rgba(0, 100, 255, 0.9) 0%,
+    rgba(40, 20, 120, 0.9) 100%);
+  color: #e6f7ff;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  overflow: hidden;
+  display: inline-flex;
+  white-space: nowrap;
+  font-size: clamp(0.9rem, 1.5vw, 1.25rem);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* 加載中的消息 */
-.loading-message {
-  font-size: 18px;
-  color: #555;
-  text-align: center;
-  margin-top: 20px;
+.tech-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 228, 255, 0.5),
+              inset 0 4px 8px rgba(255, 255, 255, 0.3);
+  background-size: 150% 150%;
 }
 
-.self-player {
-  color: red;
+.tech-button:active {
+  transform: translateY(1px);
+  filter: brightness(0.9);
 }
 
-.self-tag {
-  font-weight: bold;
-  color: red;
-  margin-left: 5px;
+.tech-button::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 75%
+  );
+  animation: flow 6s infinite linear;
+  pointer-events: none;
+}
+
+@keyframes flow {
+  0% { transform: translateX(-50%) rotate(45deg); }
+  100% { transform: translateX(50%) rotate(45deg); }
+}
+
+@media (max-width: 768px) {
+  .button-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 1rem;
+  }
+
+  .tech-button {
+    max-width: 320px;
+    min-width: auto;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 10px;
+  }
+
+  .tech-button::after {
+    animation-duration: 8s;
+  }
+}
+
+@media (max-width: 480px) {
+  .tech-button {
+    font-size: 0.9rem;
+    padding: 0.8rem 1.2rem;
+  }
+}
+
+.tech-button.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.tech-button.loading::after {
+  animation: none;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    rgba(255,255,255,0.1) 1rem,
+    transparent 2rem
+  );
 }
 </style>

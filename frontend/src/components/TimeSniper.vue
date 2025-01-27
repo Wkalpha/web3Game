@@ -1,12 +1,7 @@
 <template>
   <div class="game-container">
-    <div class="user-info-row">
-      <UserInventory ref="userInventory" :wallet-address="walletAddress" @get-inventory="handleInventory" />
-      <UserBaseInfo :wallet-address="walletAddress" />
-    </div>
-
     <h2>遊戲</h2>
-    <h2>剩餘可遊玩次數{{ leftOfPlay }}</h2>
+    <h2>剩餘可遊玩次數{{ gameStore.userInfo.leftOfPlay }}</h2>
     <div v-if="!gameStarted && !gameFinished">
       <h3>選擇難度</h3>
       <button @click="setDifficulty('Easy')">Easy</button>
@@ -52,11 +47,11 @@
     </div>
 
     <!-- 道具選擇 Modal -->
-    <div v-if="isModalVisible" class="modal-overlay">
+    <div v-if="isSelectItemModalVisible" class="modal-overlay">
       <div class="modal">
         <div class="modal-header">
           <h3>選擇一個道具使用</h3>
-          <button @click="closeModal">X</button>
+          <button @click="isSelectItemModalVisible = false">X</button>
         </div>
         <div class="modal-body">
           <ul>
@@ -94,339 +89,219 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import UserInventory from './UserInventory.vue';
-import UserBaseInfo from './UserBaseInfo.vue';
+import { useGameStore } from '@/stores/game';
 
-export default {
-  name: 'TimeSniper',
-  props: {
-    userTimeCoin: {
-      type: Number,
-      required: true,
-    },
-    leftOfPlay: {
-      type: Number,
-      required: true,
-    },
-    walletAddress: {
-      type: String,
-      required: true
-    },
-    showGameResultText: {
-      type: String,
-      required: true
+const gameStore = useGameStore();
+
+const gameId = ref(null);
+const difficulty = ref(null);
+const betAmount = ref(null);
+const odds = ref(0);
+const betAmountError = ref('');
+const gameStarted = ref(false);
+const gameFinished = ref(false);
+const targetTime = ref(null);
+const timing = ref(false);
+const elapsedTime = ref(null);
+const currentRound = ref(1);
+const gameRound = ref(0);
+const threshold = ref(0);
+const totalScore = ref(0);
+const currentRoundScore = ref(null);
+const countdownTime = ref(180);
+const countdownInterval = ref(null);
+const inventory = ref(null);
+const useNoItem = ref(false);
+const selectedItem = ref(null);
+const gameLog = ref([]);
+const isGameLogModalVisible = ref(false);
+const showGameResultText = ref(null);
+
+const isSelectItemModalVisible = ref(false);
+
+const canStartGame = computed(() => {
+  return (
+    Number.isInteger(betAmount.value) &&
+    betAmount.value >= 100 &&
+    betAmount.value <= gameStore.userInfo.timeCoin &&
+    !!difficulty.value &&
+    gameStore.userInfo.leftOfPlay > 0
+  );
+});
+
+const startCountdown = () => {
+  countdownTime.value = 180;
+  countdownInterval.value = setInterval(() => {
+    if (countdownTime.value > 0) {
+      countdownTime.value--;
+    } else {
+      clearInterval(countdownInterval.value);
+      gameFinished.value = true;
+      gameStarted.value = false;
     }
-  },
-  components: {
-    UserInventory,
-    UserBaseInfo
-  },
-  data() {
-    return {
-      gameId: null,
-      difficulty: null,
-      betAmount: null,
-      odds: 0,
-      betAmountError: '',
-      gameStarted: false,
-      targetTime: null,
-      timing: false,
-      elapsedTime: null, // 計時的經過時間
-      currentRound: 1,
-      gameRound: 0,
-      threshold: 0,
-      totalScore: 0,
-      currentRoundScore: null,
-      countdownTime: 180, // 3分鐘倒數時間，單位為秒
-      countdownInterval: null,
-      gameFinished: false,
-      inventory: null,
-      isModalVisible: false, // 控制道具選擇 Modal 顯示
-      useNoItem: false,
-      isGameLogModalVisible: false, // 控制 GameLog Modal 顯示
-      gameLog: null,
-    };
-  },
-  computed: {
-    canStartGame() {
-      return (
-        Number.isInteger(this.betAmount) &&
-        this.betAmount >= 100 &&
-        this.betAmount <= this.userTimeCoin &&
-        !!this.difficulty &&
-        this.leftOfPlay > 0
-      );
-    }
-  },
-  methods: {
-    startCountdown() {
-      this.countdownTime = 180;
-      this.countdownInterval = setInterval(() => {
-        if (this.countdownTime > 0) {
-          this.countdownTime--;
-        } else {
-          clearInterval(this.countdownInterval);
-          this.gameFinished = true;
-          this.gameStarted = false;
-        }
-      }, 1000);
-    },
-    setDifficulty(level) {
-      this.difficulty = level;
-      switch (this.difficulty) {
-        case 'Easy':
-          this.odds = 0.01;
-          this.threshold = 40;
-          break;
-        case 'Normal':
-          this.odds = 0.03;
-          this.threshold = 100;
-          break;
-        case 'Hard':
-          this.odds = 0.1;
-          this.threshold = 130;
-          break;
-        default:
-          break;
-      }
-    },
-    handleInventory(inventory) {
-      this.inventory = inventory.filter(item => item.ItemType === 'DamageBuff' || item.ItemType === 'FinalBuff' || item.ItemType === 'FunctionalBuff');
-    },
-    async onStartGame() {
-      if (this.betAmount <= 0 || this.betAmount > this.userTimeCoin) {
-        this.betAmountError = '下注金額必須大於0且不能超過餘額';
-        return;
-      }
-      this.betAmountError = '';
-
-      await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, { walletAddress: this.walletAddress }).then(rs => {
-        this.inventory = rs.data.inventory.filter(item => item.ItemType === 'DamageBuff' || item.ItemType === 'FinalBuff' || item.ItemType === 'FunctionalBuff');
-      })
-
-      if (this.inventory.length == 0) {
-        this.startGame();
-        return;
-      }
-
-      // 如果未勾選 "不使用道具"，則彈出選擇道具的 Modal
-      if (!this.useNoItem && this.inventory.length > 0) {
-        this.isModalVisible = true;
-        return;
-      }
-
-      // 如果勾選了 "不使用道具"，直接開始遊戲
-      this.startGame();
-    },
-    selectItem(item) {
-      this.selectedItem = item; // 設定選中的道具
-      this.isModalVisible = false; // 關閉 Modal
-      this.startGame(); // 開始遊戲
-    },
-    noUseItem() {
-      this.isModalVisible = false; // 關閉 Modal
-      this.startGame(); // 開始遊戲
-    },
-    closeModal() {
-      this.isModalVisible = false; // 關閉 Modal
-    },
-    async getGameLog() {
-      const payload = {
-        gameId: this.gameId
-      }
-      try {
-        const response = await axios.post(`${process.env.VUE_APP_API_URL}/game-log`, payload);
-        this.gameLog = response.data.gameLog;
-        this.isGameLogModalVisible = true;
-      } catch (error) {
-        console.error('錯誤:', error);
-      }
-    },
-    async startGame() {
-      this.gameStarted = true;
-
-      const payload = {
-        walletAddress: this.walletAddress,
-        level: this.difficulty,
-        amountInput: this.betAmount,
-        itemId: this.selectedItem ? this.selectedItem.ItemId : null, // 傳遞選中的道具
-      }
-
-      await axios.post(`${process.env.VUE_APP_API_URL}/update-balance-when-game-start`, payload).then(rs => {
-        this.startCountdown();
-        this.gameId = rs.data.gameId;
-        this.gameRound = rs.data.gameRound;
-        // 通知父組件
-        this.$emit('game-start', { leftOfPlay: rs.data.leftOfPlay, timeCoin: rs.data.timeCoin });
-      })
-
-    },
-    async getTargetTime() {
-      // 打後端取得時間
-      const payload = {
-        gameId: this.gameId,
-        walletAddress: this.walletAddress
-      }
-      await axios.post(`${process.env.VUE_APP_API_URL}/getTargetTime`, payload).then(rs => {
-        this.targetTime = rs.data.targetTime;
-      });
-
-    },
-    async startTiming() {
-      this.timing = true;
-      // 打後端開始計時
-      const payload = {
-        gameId: this.gameId
-      }
-      await axios.post(`${process.env.VUE_APP_API_URL}/start-timer`, payload);
-    },
-    async stopTiming() {
-      this.timing = false;
-      // 打後端停止計時
-      const payload = {
-        gameId: this.gameId
-      }
-
-      await axios.post(`${process.env.VUE_APP_API_URL}/end-timer`, payload).then(rs => {
-        this.totalScore += rs.data.scores;
-        this.elapsedTime = rs.data.elapsedTime;
-      })
-
-      // 回合結束
-      this.targetTime = null;
-      this.currentRound++;
-
-      if (this.currentRound > this.gameRound) {
-        this.gameFinished = true;
-        this.gameStarted = false;
-
-        // 讓子組件重新取得 UserInventory
-        if (this.$refs.userInventory) {
-          this.$refs.userInventory.getInventory();
-        }
-
-        clearInterval(this.countdownInterval);
-      }
-    },
-    resetGame() {
-      clearInterval(this.countdownInterval);
-      this.difficulty = null;
-      this.betAmount = null;
-      this.betAmountError = '';
-      this.gameStarted = false;
-      this.targetTime = null;
-      this.elapsedTime = null;
-      this.timing = false;
-      this.currentRound = 1;
-      this.totalScore = 0;
-      this.currentRoundScore = null;
-      this.gameFinished = false;
-      this.countdownTime = 180;
-      this.selectedItem = null;
-    },
-  },
+  }, 1000);
 };
+
+const setDifficulty = (level) => {
+  difficulty.value = level;
+  switch (level) {
+    case 'Easy':
+      odds.value = 0.01;
+      threshold.value = 40;
+      break;
+    case 'Normal':
+      odds.value = 0.03;
+      threshold.value = 100;
+      break;
+    case 'Hard':
+      odds.value = 0.1;
+      threshold.value = 130;
+      break;
+  }
+};
+
+const fetchInventory = async () => {
+  try {
+    const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, {
+      walletAddress: gameStore.walletAddress,
+    });
+    inventory.value = response.data.inventory;
+  } catch (error) {
+    console.error('錯誤:', error);
+  }
+};
+
+const selectItem = (item) => {
+  selectedItem.value = item; // 設定選中的道具
+  isSelectItemModalVisible.value = false; // 關閉 Modal
+  startGame(); // 開始遊戲
+};
+
+const noUseItem = () => {
+  isSelectItemModalVisible.value = false; // 關閉 Modal
+  startGame(); // 開始遊戲
+};
+
+const onStartGame = async () => {
+  if (betAmount.value <= 0 || betAmount.value > gameStore.userInfo.timeCoin) {
+    betAmountError.value = '下注金額必須大於0且不能超過餘額';
+    return;
+  }
+  betAmountError.value = '';
+
+  await fetchInventory();
+  if (inventory.value && inventory.value.length === 0) {
+    startGame();
+    return;
+  }
+
+  if (!useNoItem.value && inventory.value.length > 0) {
+    isSelectItemModalVisible.value = true;
+    return;
+  }
+
+  startGame();
+};
+
+const startGame = async () => {
+  gameStarted.value = true;
+  try {
+    const payload = {
+      walletAddress: gameStore.walletAddress,
+      level: difficulty.value,
+      amountInput: betAmount.value,
+      itemId: selectedItem.value ? selectedItem.value.ItemId : null,
+    };
+    const response = await axios.post(`${process.env.VUE_APP_API_URL}/update-balance-when-game-start`, payload);
+    gameId.value = response.data.gameId;
+    gameRound.value = response.data.gameRound;
+    startCountdown();
+  } catch (error) {
+    console.error('錯誤:', error);
+  }
+};
+
+const getTargetTime = async () => {
+  try {
+    const payload = {
+      gameId: gameId.value,
+      walletAddress: gameStore.walletAddress
+    }
+    await axios.post(`${process.env.VUE_APP_API_URL}/getTargetTime`, payload).then(rs => {
+      targetTime.value = rs.data.targetTime;
+    });
+  } catch (error) {
+    console.error('錯誤:', error);
+  }
+};
+
+const startTiming = async () => {
+  timing.value = true;
+  // 打後端開始計時
+  const payload = {
+    gameId: gameId.value
+  }
+  await axios.post(`${process.env.VUE_APP_API_URL}/start-timer`, payload);
+};
+
+const stopTiming = async () => {
+  timing.value = false;
+  // 打後端停止計時
+  const payload = {
+    gameId: gameId.value
+  }
+
+  await axios.post(`${process.env.VUE_APP_API_URL}/end-timer`, payload).then(rs => {
+    totalScore.value += rs.data.scores;
+    elapsedTime.value = rs.data.elapsedTime;
+  })
+
+  // 回合結束
+  targetTime.value = null;
+  currentRound.value++;
+
+  if (currentRound.value > gameRound.value) {
+    gameFinished.value = true;
+    gameStarted.value = false;
+
+    clearInterval(countdownInterval.value);
+  }
+};
+
+const getGameLog = async () => {
+  const payload = {
+    gameId: gameId.value
+  }
+  try {
+    const response = await axios.post(`${process.env.VUE_APP_API_URL}/game-log`, payload);
+    gameLog.value = response.data.gameLog;
+    isGameLogModalVisible.value = true;
+  } catch (error) {
+    console.error('錯誤:', error);
+  }
+}
+
+const resetGame = () => {
+  clearInterval(countdownInterval.value);
+  difficulty.value = null;
+  betAmount.value = null;
+  betAmountError.value = '';
+  gameStarted.value = false;
+  targetTime.value = null;
+  elapsedTime.value = null;
+  timing.value = false;
+  currentRound.value = 1;
+  totalScore.value = 0;
+  currentRoundScore.value = null;
+  gameFinished.value = false;
+  countdownTime.value = 180;
+  selectedItem.value = null;
+};
+
+onMounted(() => {
+  // Initialization logic if needed
+});
 </script>
-
-<style>
-.game-container {
-  margin: 20px auto;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  width: 300px;
-  text-align: center;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  width: 80%;
-  max-height: 80%;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.modal-body {
-  overflow-y: auto;
-}
-
-ul {
-  list-style: none;
-  padding: 0;
-}
-
-li {
-  margin: 10px 0;
-}
-
-button {
-  margin: 5px;
-  padding: 5px 10px;
-}
-
-.error {
-  color: red;
-}
-
-.user-info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.user-info-row>* {
-  flex: 1;
-}
-
-.user-info-row> :first-child {
-  margin-right: 16px;
-  /* 可調整兩側之間的間距 */
-}
-
-button {
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease-in-out;
-  background: linear-gradient(to right, #7e81ff, #ff758c);
-  /* 漸變色 */
-  color: white;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-}
-
-button:hover {
-  background: linear-gradient(to right, #ff6584, #ff4b6b);
-  /* 滑鼠移入時的漸變 */
-  transform: translateY(-2px);
-}
-
-button:active {
-  transform: scale(0.95);
-}
-</style>

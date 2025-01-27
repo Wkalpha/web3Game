@@ -1,198 +1,184 @@
 <template>
   <div class="badge-section">
-    <h2>擁有徽章</h2>
-    <div v-if="userBadges.length > 0" class="badges">
-      <div v-for="badge in userBadges" :key="badge.BadgeId" class="badge-item">
-        <div class="button-group">
-          <button @click="showEffectDialog(badge)">效果</button>
-          <button @click="showTransferDialog(badge)">轉移</button>
-        </div>
-        <img :src="getBadgeImage(badge.BadgeId)" :alt="'Badge ' + badge.BadgeId" class="badge-image" />
+    <div v-if="!gameStore.userInfo || !gameStore.userInfo.badges">加載中...</div>
+    <div class="badges" v-else-if="gameStore.userInfo.badges.length > 0">
+      <div class="badge" v-for="badge in gameStore.userInfo.badges" :key="badge.BadgeId">
+        <img :src="getBadgeImage(badge.BadgeId)" :alt="'Badge ' + badge.BadgeId" />
+        <!-- 左下角按鈕 -->
+        <button class="badge-button badge-button-left" @click="showEffectDialog(badge)">
+          效果
+        </button>
+        <!-- 右下角按鈕 -->
+        <button class="badge-button badge-button-right" @click="showTransferDialog(badge)">
+          轉移
+        </button>
       </div>
     </div>
     <p v-else>尚未獲得任何徽章</p>
   </div>
+
 </template>
 
-<script>
+<script setup>
+import { onMounted } from 'vue';
 import axios from 'axios';
-import Swal from "sweetalert2";
+import Swal from 'sweetalert2';
+import { useGameStore } from '@/stores/game';
 
-export default {
-  props: {
-    walletAddress: {
-      type: String,
-      required: true
-    },
-    refreshKey: Number,
-    userTimeCoin: Number
-  },
-  watch: {
-    async refreshKey() {
-      await this.fetchBadges();
-    }
-  },
-  async mounted() {
-    await this.fetchBadges();
-  },
-  data() {
-    return {
-      userBadges: [],
-    };
-  },
-  methods: {
-    getBadgeImage(badgeId) {
-      return `/images/badges/${badgeId}.png`; // 直接對應 public 目錄中的圖片
-    },
-    async fetchBadges() {
-      try {
-        const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-user-badge`, { walletAddress: this.walletAddress });
-        this.userBadges = response.data.badges;
-      } catch (error) {
-        console.error("取得徽章時發生錯誤:", error);
-      }
-    },
-    async showEffectDialog(badge) {
-      Swal.fire({
-        title: `徽章效果`,
-        html: `<p><strong>${badge.Name}</strong></p>
-               <p><strong>您持有 ${badge.Quantity} 個</strong></p>
-              `,
-        icon: 'info',
-        confirmButtonText: '確定'
-      });
-    },
-    async showTransferDialog(badge) {
-      const { value: formValues } = await Swal.fire({
-        title: "轉移徽章",
-        html:
-          '<input id="walletAddress" class="swal2-input" placeholder="輸入對方的錢包地址">' +
-          `<input id="quantity" type="number" class="swal2-input" placeholder="輸入數量 (最多 ${badge.Quantity})">`,
-        focusConfirm: false,
-        preConfirm: () => {
-          return {
-            toWalletAddress: document.getElementById("walletAddress").value,
-            quantity: parseInt(document.getElementById("quantity").value, 10)
-          };
-        }
-      });
+const gameStore = useGameStore();
 
-      if (!formValues) return;
+const getBadgeImage = (badgeId) => `/images/badges/${badgeId}.png`;
 
-      const { toWalletAddress, quantity } = formValues;
+const fetchBadges = async () => {
+  try {
+    const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-user-badge`, {
+      walletAddress: gameStore.walletAddress,
+    });
+    gameStore.userInfo.badges = response.data.badges;
 
-      // **前端檢查**
-      if (!toWalletAddress || quantity <= 0) {
-        Swal.fire("錯誤", "請輸入有效的錢包地址與數量", "error");
-        return;
-      }
-
-      if (toWalletAddress === this.walletAddress) {
-        Swal.fire("錯誤", "不能轉移給自己", "error");
-        return;
-      }
-      if (quantity > badge.Quantity) {
-        Swal.fire("錯誤", "數量超過你擁有的徽章數量", "error");
-        return;
-      }
-      if (this.userTimeCoin < 5) {
-        Swal.fire("錯誤", "你的 TC 低於 5，無法進行轉移", "error");
-        return;
-      }
-
-      // 發送 API 請求
-      try {
-        const payload = {
-          fromWalletAddress: this.walletAddress,
-          toWalletAddress,
-          badgeId: badge.BadgeId,
-          quantity
-        }
-
-        const response = await axios.post(`${process.env.VUE_APP_API_URL}/transfer-badge`, payload);
-
-        if (response.data.success) {
-          Swal.fire("成功", "徽章已成功轉移!", "success");
-          await this.fetchBadges();
-        } else {
-          Swal.fire("錯誤", response.data.message, "error");
-        }
-      } catch (error) {
-        console.error("轉移時發生錯誤:", error);
-        Swal.fire("錯誤", "轉移失敗，請稍後再試", "error");
-      }
-    }
+  } catch (error) {
+    console.error('取得徽章時發生錯誤:', error);
   }
 };
+
+const showEffectDialog = (badge) => {
+  Swal.fire({
+    title: `徽章效果`,
+    html: `<p><strong>${badge.Name}</strong></p>
+           <p><strong>您持有 ${badge.Quantity} 個</strong></p>`,
+    icon: 'info',
+    confirmButtonText: '確定',
+  });
+};
+
+const showTransferDialog = async (badge) => {
+  const { value: formValues } = await Swal.fire({
+    title: '轉移徽章',
+    html: `
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <input id="walletAddress" class="swal2-input" placeholder="輸入對方的錢包地址" />
+        <input id="quantity" type="number" class="swal2-input" placeholder="輸入數量 (最多 ${badge.Quantity})" />
+      </div>
+    `,
+    focusConfirm: false,
+    preConfirm: () => {
+      return {
+        toWalletAddress: document.getElementById('walletAddress').value,
+        quantity: parseInt(document.getElementById('quantity').value, 10),
+      };
+    },
+  });
+
+  if (!formValues) return;
+
+  const { toWalletAddress, quantity } = formValues;
+
+  if (!toWalletAddress || quantity <= 0 || quantity > badge.Quantity) {
+    Swal.fire('錯誤', '請輸入有效的錢包地址與數量', 'error');
+    return;
+  }
+  if (toWalletAddress === gameStore.walletAddress) {
+    Swal.fire('錯誤', '不能轉移給自己', 'error');
+    return;
+  }
+  if (gameStore.userInfo.timeCoin < 5) {
+    Swal.fire('錯誤', '你的 TC 低於 5，無法進行轉移', 'error');
+    return;
+  }
+
+  try {
+    const payload = {
+      fromWalletAddress: gameStore.walletAddress,
+      toWalletAddress,
+      badgeId: badge.BadgeId,
+      quantity,
+    };
+    const response = await axios.post(`${process.env.VUE_APP_API_URL}/transfer-badge`, payload);
+    if (response.data.success) {
+      Swal.fire('成功', '徽章已成功轉移!', 'success');
+      await fetchBadges();
+    } else {
+      Swal.fire('錯誤', response.data.message, 'error');
+    }
+  } catch (error) {
+    console.error('轉移時發生錯誤:', error);
+    Swal.fire('錯誤', '轉移失敗，請稍後再試', 'error');
+  }
+};
+
+onMounted(fetchBadges);
 </script>
 
 <style scoped>
 .badge-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  /* 讓內容水平置中 */
-  justify-content: center;
-  /* 讓內容垂直置中（如果有需要） */
-  padding: 20px;
-  border-radius: 10px;
+  background: #333;
+  padding: 1rem;
+  border-radius: 8px;
 }
 
 .badges {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 15px;
-  flex-wrap: wrap;
   justify-content: center;
-  /* 讓徽章水平置中 */
 }
 
-.badge-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px;
-  border-radius: 10px;
-  background-color: transparent;
-  /* 取消白色背景 */
-  text-align: center;
-  width: 100px;
-}
-
-.badge-image {
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
-  display: block;
-  margin: 0 auto;
-}
-
-.button-group {
-  display: flex;
-  gap: 10px;
-  /* 按鈕之間的間距 */
-}
-
-button {
-  border: none;
-  padding: 8px 12px;
+.badge {
+  position: relative;
+  aspect-ratio: 1; /* 保持正方形 */
   border-radius: 8px;
-  font-size: 14px;
+  overflow: hidden;
+  background-color: #444;
+}
+
+.badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badge-button {
+  position: absolute;
+  bottom: 5px;
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.badge-button-left {
+  left: 5px;
+}
+
+.badge-button-right {
+  right: 5px;
+}
+
+.button {
+  grid-column: span 1;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
   font-weight: bold;
   cursor: pointer;
-  transition: all 0.3s ease-in-out;
-  background: linear-gradient(to right, #ff7eb3, #ff758c);
-  /* 漸變色 */
-  color: white;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 }
-
-button:hover {
-  background: linear-gradient(to right, #ff6584, #ff4b6b);
-  /* 滑鼠移入時的漸變 */
-  transform: translateY(-2px);
-}
-
-button:active {
-  transform: scale(0.95);
+/* 小屏幕專用樣式 */
+@media (max-width: 520px) {
+  .badges {
+    grid-template-columns: repeat(2, minmax(0, 1fr)); /* 強制兩列 */
+  }
+  
+  .badge {
+    min-width: 0; /* 允許內容壓縮 */
+    width: 100%; /* 填滿 grid cell */
+    aspect-ratio: 1; /* 保持正方形 */
+  }
+  
+  .badge-button {
+    padding: 2px 4px; /* 按鈕縮小 */
+    font-size: 0.6rem; /* 字體縮小 */
+  }
 }
 </style>

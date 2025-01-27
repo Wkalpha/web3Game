@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import GameIndex from '@/views/GameIndex.vue';
 import GameLogin from '@/views/GameLogin.vue';
+import TestPage from '@/views/TestPage.vue';
+import PvE from '@/views/PvE.vue';
 import { useGameStore } from '@/stores/game';
 
 const routes = [
@@ -14,6 +16,17 @@ const routes = [
     name: 'GameIndex',
     component: GameIndex,
     meta: { requiresAuth: true }  // 需要登入
+  },
+  {
+    path: '/pve',
+    name: 'PvE',
+    component: PvE,
+    meta: { requiresAuth: true }  // 需要登入
+  },
+  {
+    path: '/testpage',
+    name: 'TestPage',
+    component: TestPage
   }
 ];
 

@@ -18,7 +18,8 @@ export const useGameStore = defineStore('game', {
         userInfo: {
             userId: null,
             timeCoin: 0,
-            leftOfPlay: 0
+            leftOfPlay: 0,
+            badges: []
         },
         playTimes: null,
         showLeaderboard: false,
@@ -131,7 +132,7 @@ export const useGameStore = defineStore('game', {
         async connectWallet() {
             if (window.ethereum) {
                 try {
-                    this.wallet_connected = true
+                    this.walletConnected = true
                     await window.ethereum.request({ method: 'eth_requestAccounts' })
                     this.web3 = new Web3(window.ethereum)
                     const accounts = await this.web3.eth.getAccounts()
@@ -151,7 +152,7 @@ export const useGameStore = defineStore('game', {
                     }
                 } catch (error) {
                     console.error('钱包连接失败:', error)
-                    this.wallet_connected = false
+                    this.walletConnected = false
                 }
             } else {
                 alert('您尚未安装 Metamask')
@@ -168,7 +169,8 @@ export const useGameStore = defineStore('game', {
                 this.userInfo = response.data;
                 this.referredBy = response.data.referredBy;
                 this.login = true;
-                this.wallet_connected = true
+                this.walletConnected = true
+                await this.getUserBaseInfo();
             } catch (error) {
                 console.error("檢查玩家失敗:", error);
             }

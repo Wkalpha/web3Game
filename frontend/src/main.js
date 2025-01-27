@@ -3,6 +3,7 @@ import App from './App.vue';
 import router from './router';
 import Toast from "vue-toastification";
 import { createPinia } from 'pinia'
+import '@/assets/styles/global.css';
 import "vue-toastification/dist/index.css";
 
 // 建立 Vue 應用

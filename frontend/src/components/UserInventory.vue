@@ -1,184 +1,230 @@
 <template>
-    <div>
-        <button class="open-modal-btn" @click="openModal">包包</button>
-
-        <!-- Modal -->
-        <div v-if="isModalVisible" class="modal-overlay">
-            <div class="modal">
-                <div class="modal-header">
-                    <h3>包包</h3>
-                    <button class="close-btn" @click="isModalVisible = false">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <table v-if="gameStore.inventory && gameStore.inventory.length > 0" class="inventory-table">
-                        <thead>
-                            <tr>
-                                <th>物品名稱</th>
-                                <th>數量</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="item in filteredInventory" :key="item.InventoryId">
-                                <td>{{ item.ItemName }}</td>
-                                <td>
-                                    {{ item.Quantity }}
-                                    <button v-if="['Currency', 'Ticket', 'PermanentBuff'].includes(item.ItemType)"
-                                        class="use-btn" @click="useInventory(item.ItemId, item.ItemType)">
-                                        使用
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <p v-else class="no-items">尚無道具資料。</p>
-                </div>
-            </div>
-        </div>
-    </div>
+  <div class="button-container">
+    <button class="tech-button" @click="openInventoryModal">包包</button>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import { computed, onMounted } from 'vue';
 import Swal from 'sweetalert2';
+import axios from 'axios';
 import { useGameStore } from '@/stores/game';
+import { useToast } from 'vue-toastification';
 
 const gameStore = useGameStore();
+const toast = useToast();
 
-const isModalVisible = ref(false);
-
+// 只顯示數量大於 0 的道具
 const filteredInventory = computed(() => gameStore.inventory.filter(item => item.Quantity > 0));
 
-const useInventory = async (itemId, itemType) => {
-    const payload = { walletAddress: gameStore.walletAddress, itemId };
-    await axios.post(`${process.env.VUE_APP_API_URL}/use-item`, payload).then(rs => {
-        if (itemType === 'Ticket') {
-            Swal.fire({
-                title: '抽獎中',
-                html: `<h2>正在抽獎...</h2>`,
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                didOpen: async () => {
-                    Swal.showLoading();
-                    const finalPrize = rs.data.prize;
-                    Swal.fire({
-                        title: '恭喜！',
-                        html: `<h2>抽中獎品：${finalPrize.ItemName}</h2><p>數量：${finalPrize.ItemValue}</p>`,
-                        icon: 'success',
-                        confirmButtonText: '確定',
-                    });
-                },
-            });
-        }
-    });
-    await gameStore.getInventory();
+// 開啟道具清單的 Swal 視窗
+const openInventoryModal = async () => {
+  await gameStore.getInventory();
+  renderInventoryModal();
 };
 
-const openModal = async () => {
-    isModalVisible.value = true;
-    await gameStore.getInventory();
+// 渲染 Swal 彈窗
+const renderInventoryModal = () => {
+  Swal.fire({
+    title: '道具',
+    html: generateInventoryHtml(),
+    showCloseButton: true,
+    showConfirmButton: false,
+    theme: 'dark',  // 啟用 Swal 內建深色主題
+    didOpen: () => bindUseButtons(),
+  });
+};
+
+// 產生道具表格 HTML
+const generateInventoryHtml = () => {
+  return `
+    <div class="inventory-modal">
+      ${gameStore.inventory.length > 0
+      ? `
+          <table style="width: 100%; text-align: left; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #3085d6; color: white;">
+                <th>物品名稱</th>
+                <th>數量</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredInventory.value
+        .map(
+          item => `
+                  <tr id='item-row-${item.ItemId}'>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.ItemName}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">
+                        <span id='quantity-${item.ItemId}'>${item.Quantity}</span>
+                        ${['Currency', 'Ticket', 'PermanentBuff'].includes(item.ItemType)
+              ? `<button class='use-btn' data-id='${item.ItemId}' data-type='${item.ItemType}'>使用</button>`
+              : ''
+            }
+                    </td>
+                  </tr>`
+        )
+        .join('')}
+            </tbody>
+          </table>
+        `
+      : '<p class="no-items">尚無道具資料。</p>'
+    }
+    </div>
+  `;
+};
+
+// 綁定使用道具的按鈕事件
+const bindUseButtons = () => {
+  document.querySelectorAll('.use-btn').forEach(button => {
+    button.addEventListener('click', async (e) => {
+      const itemId = parseInt(e.target.getAttribute('data-id'));
+      const itemType = e.target.getAttribute('data-type');
+      await useInventory(itemId, itemType);
+    });
+  });
+};
+
+// 使用道具邏輯
+const useInventory = async (itemId, itemType) => {
+  try {
+    const payload = { walletAddress: gameStore.walletAddress, itemId };
+    const response = await axios.post(`${process.env.VUE_APP_API_URL}/use-item`, payload);
+
+    if (response.data.success) {
+      const itemIndex = gameStore.inventory.findIndex(i => i.ItemId === itemId);
+      if (itemIndex !== -1) {
+        const item = gameStore.inventory[itemIndex];
+
+        if (item.Quantity > 1) {
+          item.Quantity -= 1;
+          document.getElementById(`quantity-${itemId}`).innerText = item.Quantity;
+        } else {
+          gameStore.inventory.splice(itemIndex, 1);
+          document.getElementById(`item-row-${itemId}`).remove();
+          toast.success(`${item.ItemName} 已使用完畢！`);
+        }
+
+        // 顯示抽獎獎勵
+        if (itemType === 'Ticket') {
+          Swal.fire({
+            title: '抽獎中',
+            html: '<h2>正在抽獎...</h2>',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: async () => {
+              Swal.showLoading();
+              const finalPrize = response.data.prize;
+              Swal.fire({
+                title: '恭喜！',
+                html: `<h2>抽中獎品：${finalPrize.ItemName}</h2><p>數量：${finalPrize.ItemValue}</p>`,
+                icon: 'success',
+                confirmButtonText: '確定',
+              });
+            },
+          });
+        } else {
+          toast.success(`成功使用 ${item.ItemName}，剩餘數量 ${item.Quantity}！`);
+        }
+      }
+    } else {
+      throw new Error('操作失敗');
+    }
+  } catch (error) {
+    console.error('使用道具失敗:', error);
+    Swal.fire('錯誤', '使用道具失敗，請稍後重試', 'error');
+    toast.error('使用道具失敗，請稍後重試');
+  }
 };
 
 onMounted(async () => {
-    await gameStore.getInventory();
+  await gameStore.getInventory();
 });
 </script>
 
-<style scoped>
-.open-modal-btn {
-    background: linear-gradient(135deg, #ff416c, #ff4b2b);
-    color: white;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: transform 0.3s;
+<style>
+.button-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.open-modal-btn:hover {
-    transform: scale(1.05);
-}
-
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal {
-    background: rgba(50, 50, 50, 0.95);
-    padding: 25px;
-    border-radius: 15px;
-    width: 60%;
-    max-height: 80%;
-    overflow-y: auto;
-    box-shadow: 0 0 20px rgba(255, 71, 87, 0.7);
-    animation: fadeIn 0.5s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.9);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: #fff;
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 28px;
-    cursor: pointer;
-    color: #ff4b2b;
-}
-
-.inventory-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.inventory-table th, .inventory-table td {
-    border: 1px solid #ff4b2b;
-    padding: 12px;
-    text-align: left;
-    color: #fff;
-}
-
-.inventory-table th {
-    background: #ff416c;
-}
-
+/* 簡約科技風遊戲按鈕 */
 .use-btn {
-    background: #ff4b2b;
-    color: #fff;
-    padding: 6px 12px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+  position: relative;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #3e3a7e;
+  background: transparent;
+  border: 2px solid #00f7ff;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.3s ease-in-out;
+  box-shadow: 0 0 10px rgba(0, 247, 255, 0.5);
 }
 
-.no-items {
-    text-align: center;
-    color: #ddd;
-    font-size: 20px;
+/* 按鈕點擊效果 */
+.use-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 0 5px rgba(0, 247, 255, 0.8);
+}
+
+.tech-button {
+  position: relative;
+  padding: 15px 30px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #00f7ff;
+  background: linear-gradient(135deg, #0a0a2e, #1a1a4a);
+  border: 2px solid #00f7ff;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s ease-in-out;
+  box-shadow: 0 0 10px rgba(0, 247, 255, 0.5);
+}
+
+.tech-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300%;
+  height: 300%;
+  background: radial-gradient(circle, rgba(0, 247, 255, 0.3), rgba(0, 0, 0, 0.1));
+  transition: all 0.6s ease;
+  transform: translate(-50%, -50%) scale(0);
+}
+
+.tech-button:hover::before {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 0;
+}
+
+.tech-button:hover {
+  color: #fff;
+  background: linear-gradient(135deg, #00f7ff, #008080);
+  border-color: #00ffcc;
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
+  transform: translateY(-2px);
+}
+
+.tech-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 5px rgba(0, 255, 204, 0.8);
+}
+
+/* 添加發光邊緣動畫 */
+.tech-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
 }
 </style>
