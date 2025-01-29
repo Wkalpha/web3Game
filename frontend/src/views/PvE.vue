@@ -1,5 +1,5 @@
 <template>
-    <div id="game-index">
+    <div class="cyber-container">
         <TimeSniper />
     </div>
 </template>

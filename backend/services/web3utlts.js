@@ -16,7 +16,6 @@ const contract = new web3.eth.Contract(contractABI, contractAddress);
 const OWNER_PRIVATE_KEY = process.env.Web3PK; // 私鑰，必須保密
 const OWNER_WALLET_ADDRESS = process.env.Web3OwnerWalletAddress; // 擁有者的錢包地址
 async function transferEthToSpecificAddress(toAddress, amountInEther) {
-    console.log("被呼叫", toAddress, amountInEther/10000)
 
     let ethToWei = amountInEther/10000;
     try {

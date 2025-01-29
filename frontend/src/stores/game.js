@@ -114,21 +114,6 @@ export const useGameStore = defineStore('game', {
                 console.error("購買失敗:", error.message);
             }
         },
-        // Time Coin > ETH
-        async timeCoinToETH() {
-            try {
-                this.blockchainConfirm = false;
-
-                await axios.post(`${process.env.VUE_APP_API_URL}/update-user-balance-when-buy-eth`, {
-                    walletAddress: this.walletAddress,
-                    balanceChange: this.timeCoin
-                });
-
-            } catch (error) {
-                this.blockchainConfirm = true;
-                console.error("兌換失敗:", error.message);
-            }
-        },
         async connectWallet() {
             if (window.ethereum) {
                 try {
@@ -183,21 +168,6 @@ export const useGameStore = defineStore('game', {
                 } catch (error) {
                     console.error('無法獲取最新餘額:', error);
                 }
-            }
-        },
-        // ETH > Time Coin
-        async ethToTimeCoin() {
-            try {
-                this.blockchainConfirm = false;
-                const amountToSend = this.web3.utils.toWei(this.eth.toString(), "ether");
-
-                await this.contract.methods.buyTokens().send({
-                    from: this.walletAddress,
-                    value: amountToSend,
-                });
-            } catch (error) {
-                this.blockchainConfirm = true;
-                console.error("購買代幣失敗:", error.message);
             }
         },
         copyWalletAddress(address) {

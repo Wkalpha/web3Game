@@ -83,13 +83,8 @@ onBeforeUnmount(() => {
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 0, 0, 0.8));
-    border: 2px solid rgba(0, 255, 255, 0.5);
-    border-radius: 10px;
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
     z-index: 1000;
     text-align: center;
-    animation: glow-pulse 2s infinite alternate ease-in-out;
     backdrop-filter: blur(10px);
     max-width: 80%;
     font-family: 'Orbitron', sans-serif;

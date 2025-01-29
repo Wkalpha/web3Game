@@ -10,15 +10,15 @@ const { transferEthToSpecificAddress, withdraw } = require('../services/web3utlt
  * 更新用戶餘額，當購買遊戲次數時
  */
 const updateUserBalanceWhenBuyPlaytimes = async (req, res) => {
-  const { walletAddress, balanceChange, playTimes } = req.body;
-  const balanceChangeToETH = balanceChange / 10000; // 轉換為 ETH
+  const { walletAddress, playTimes } = req.body;
+  const balanceChangeToETH = playTimes * 100 / 10000; // 轉換為 ETH
 
   try {
     // 1.更新獎金池的金額
     await prizePoolModel.updateMainPrizePoolAmount(balanceChangeToETH);
 
     // 2.更新使用者的 TimeCoin 和剩餘遊戲次數
-    await userModel.buyPlayTimes(walletAddress, balanceChange, playTimes);
+    await userModel.buyPlayTimes(walletAddress, playTimes * 100, playTimes);
 
     // 3.獲取最新的使用者資訊
     const userInfo = await userModel.getTimeCoinPlayTimes(walletAddress);
@@ -35,13 +35,13 @@ const updateUserBalanceWhenBuyPlaytimes = async (req, res) => {
  * 玩家使用 Time Coin 兌換 Eth
  */
 const updateUserBalanceWhenBuyETH = async (req, res) => {
-  const { walletAddress, balanceChange } = req.body;
+  const { walletAddress, deductTimeCoin } = req.body;
 
   try {
     // 檢查 Time Coin 是否足夠
     const timeCoin = await userModel.getTimeCoin(walletAddress);
-    if (timeCoin >= balanceChange) {
-      transferEthToSpecificAddress(walletAddress, balanceChange);
+    if (timeCoin >= deductTimeCoin) {
+      transferEthToSpecificAddress(walletAddress, deductTimeCoin);
     } else {
       res.status(500).json("Time Coin 不足");
     }

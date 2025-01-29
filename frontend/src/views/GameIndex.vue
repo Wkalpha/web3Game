@@ -8,7 +8,7 @@
                     <span class="wallet-address">錢包地址：{{ gameStore.walletAddress }}</span>
                     <div class="value-group">
                         <span class="eth-value">ETH:{{ gameStore.balance }}</span>
-                        <button class="pill-button">換回ETH</button>
+                        <TimeCoinToEth />
                     </div>
                 </div>
             </div>
@@ -16,8 +16,8 @@
             <!-- 資源操作區 -->
             <div class="action-cluster">
                 <div class="resource-group">
-                    <span class="coin-value">💰 1,814K</span>
-                    <button class="gradient-button">購買TC</button>
+                    <span class="coin-value">💰 {{ gameStore.userInfo.timeCoin }}</span>
+                    <EthToTimeCoin />
                 </div>
             </div>
         </header>
@@ -26,7 +26,8 @@
             <div class="daily-missions">
                 <DailyQuest />
             </div>
-            
+
+
             <div class="stage">
                 <BigPrizeMarquee />
                 <!-- 徽章列 -->
@@ -39,6 +40,10 @@
                 <div class="bonus-pools">
                     <div class="bonus main-pool">
                         <PrizePool />
+                        <div class="action-buttons">
+                            <button class="action-btn primary" @click="navigateToPvE">爭奪獎金</button>
+                            <button class="action-btn secondary" @click="navigateToPvE">挑戰玩家</button>
+                        </div>
                     </div>
 
                     <div class="bonus leaderboard-pool">
@@ -52,19 +57,16 @@
                         <div class="stat-item">
                             <span class="stat-label">攻擊力倍率</span>
                             <span class="stat-value">{{ gameStore.userBaseInfo.BaseAttackPower }}倍</span>
-                        </div>
-                        <div class="stat-item">
                             <span class="stat-label">結算獎勵倍率</span>
                             <span class="stat-value">{{ gameStore.userBaseInfo.RewardMultiplier }}倍</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">每日可遊玩次數</span>
-                            <span class="stat-value">{{ gameStore.userBaseInfo.BaseLeftOfPlay }}次</span>
+                            <span class="stat-value">{{ gameStore.userBaseInfo.BaseLeftOfPlay }} 次</span>
+                            <span class="stat-label">剩餘</span>
+                            <span class="stat-value">{{ gameStore.userInfo.leftOfPlay }} 次</span>
+                            <BuyPlayTime />
                         </div>
-                    </div>
-                    <div class="action-buttons">
-                        <button class="action-btn primary" @click="navigateToPvE">爭奪獎金</button>
-                        <button class="action-btn secondary" @click="navigateToPvE">挑戰玩家</button>
                     </div>
                 </div>
 
@@ -93,6 +95,10 @@ import PrizeItemPool from '@/components/PrizeItemPool.vue';
 import BadgeDisplay from '@/components/BadgeDisplay.vue';
 import BadgeLottery from '@/components/BadgeLottery.vue';
 import BigPrizeMarquee from '@/components/BigPrizeMarquee.vue';
+import EthToTimeCoin from '@/components/EthToTimeCoin.vue';
+import TimeCoinToEth from '@/components/TimeCoinToEth.vue';
+import BuyPlayTime from '@/components/BuyPlayTime.vue';
+import Swal from 'sweetalert2';
 
 defineOptions({
     name: 'GameIndex'
@@ -102,6 +108,27 @@ const gameStore = useGameStore();
 
 const router = useRouter();
 const navigateToPvE = () => {
+
+    if (gameStore.userInfo.leftOfPlay <= 0) {
+        Swal.fire({
+            title: '遊玩次數不足',
+            icon: 'error',
+            confirmButtonText: '確定'
+        });
+        return;
+    }
+
+    if (gameStore.userInfo.timeCoin < 100) {
+        Swal.fire({
+            title: 'Time Coin 不足',
+            text: '至少需要 100 Time Coin 才能進入 PvE 模式！',
+            icon: 'warning',
+            confirmButtonText: '瞭解'
+        });
+        return;
+    }
+
+    // 若上面的檢核全部通過，就可以執行跳轉
     router.push('/pve');
 };
 
@@ -247,21 +274,6 @@ const navigateToPvE = () => {
     padding: 10px 15px;
 }
 
-/* 按鈕基本樣式 */
-button {
-    background: #4CAF50;
-    border: none;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: opacity 0.3s;
-}
-
-button:hover {
-    opacity: 0.8;
-}
-
 .inventory {
     gap: 1.5rem;
     padding: 1rem;
@@ -366,7 +378,8 @@ button:active {
 }
 
 .eth-value {
-    font-variant-numeric: tabular-nums;
+    font-family: monospace;
+    color: hsl(158 70% 50%);
 }
 
 .coin-value {
@@ -384,7 +397,7 @@ button:active {
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
     margin-bottom: 1.5rem;
 }
@@ -424,6 +437,7 @@ button:active {
     cursor: pointer;
     transition: all 0.3s ease;
     min-width: 160px;
+    margin: 2rem;
 }
 
 .action-btn.primary {
