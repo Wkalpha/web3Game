@@ -29,7 +29,7 @@ const openLeaderboard = async (currentOrLast) => {
     Swal.fire({
       title: currentOrLast ? '本週排行榜' : '上週排行榜',
       html: `
-        <div class="leaderboard-modal">
+      <div class="swal-leaderboard-container">
           ${currentOrLast ? `<h3 id="countdown">(結算時間: ${getCountdown()})</h3>` : ''}
           <div class="loading-message" id="loading">數據加載中，請稍候...</div>
           <ul class="leaderboard-list" id="leaderboard-content" style="display: none;">
@@ -45,7 +45,7 @@ const openLeaderboard = async (currentOrLast) => {
               </li>
             `).join('')}
           </ul>
-        </div>
+      </div>
       `,
       showCloseButton: true,
       showConfirmButton: false,
@@ -125,28 +125,6 @@ window.placeBet = async (walletAddress) => {
 </script>
 
 <style scoped>
-.leaderboard-modal ul {
-  list-style: none;
-  padding: 0;
-}
-.leaderboard-modal li {
-  padding: 10px;
-  border-bottom: 1px solid #ccc;
-  display: flex;
-  justify-content: space-between;
-}
-.bet-button {
-  padding: 5px 10px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-.bet-button:hover {
-  background-color: #45a049;
-}
-
 .button-container {
   display: flex;
   gap: 1.5rem;

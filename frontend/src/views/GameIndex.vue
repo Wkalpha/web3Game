@@ -207,7 +207,6 @@ const navigateToPvE = () => {
 
 .daily-missions {
     gap: 1.5rem;
-    padding: 1rem;
     border-radius: 12px;
 }
 
@@ -219,7 +218,6 @@ const navigateToPvE = () => {
 
 .badge-section {
     background: #333;
-    padding: 1rem;
     border-radius: 8px;
     display: grid;
     grid-template-columns: repeat(2, auto);
@@ -471,8 +469,12 @@ button:active {
 }
 
 @media (max-width: 480px) {
-    .daily-missions {
-        height: 45vh;
+    .action-btn {
+        margin: 0rem;
+    }
+
+    .badge-section button {
+        margin-left: 1rem;
     }
 
     .play-area {

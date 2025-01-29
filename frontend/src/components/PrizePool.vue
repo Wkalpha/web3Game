@@ -38,9 +38,7 @@ const formattedPrizePool = computed(() => {
     position: relative;
     box-shadow: 0 0 20px rgba(0, 247, 255, 0.3);
     max-width: 100%;
-    /* 新增 */
     box-sizing: border-box;
-    /* 新增 */
 }
 
 .neon-title {
@@ -156,6 +154,9 @@ const formattedPrizePool = computed(() => {
 
 /* 手機版專用調整 */
 @media (max-width: 480px) {
+    .cyberpunk-container {
+        margin-bottom: 1rem;
+    }
 
     .neon-title {
         font-size: 1rem;

@@ -1,5 +1,8 @@
 <template>
+  <!-- ❶ 先放一個在最外層、位置固定的「返回」按鈕 -->
+  <button @click="goBack" class="btn-back">返回</button>
   <div class="time-battle-wrapper">
+
     <div class="time-battle-container">
       <!-- 難度選擇階段 -->
       <div v-if="!gameStarted && !gameFinished" class="difficulty-stage">
@@ -49,7 +52,7 @@
         <h3>遊戲結束</h3>
         <p>獲勝門檻: {{ threshold }} 分</p>
         <p>總分：{{ totalScore }} 分</p>
-        <p>{{ showGameResultText }}</p>
+        <p>{{ showText }}</p>
         <button @click="getGameLog">遊戲紀錄</button>
         <button @click="resetGame">重新開始</button>
       </div>
@@ -102,6 +105,12 @@
 import { ref, computed } from 'vue';
 import axios from 'axios';
 import { useGameStore } from '@/stores/game';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+function goBack() {
+  router.go(-1);
+}
 
 const gameStore = useGameStore();
 
@@ -127,7 +136,7 @@ const useNoItem = ref(false);
 const selectedItem = ref(null);
 const gameLog = ref([]);
 const isGameLogModalVisible = ref(false);
-const showGameResultText = ref(null);
+const showText = ref(null);
 
 const isSelectItemModalVisible = ref(false);
 
@@ -172,9 +181,9 @@ const setDifficulty = (level) => {
   }
 };
 
-const fetchInventory = async () => {
+const fetchUseableItem = async () => {
   try {
-    const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-inventory`, {
+    const response = await axios.post(`${process.env.VUE_APP_API_URL}/get-battle-item`, {
       walletAddress: gameStore.walletAddress,
     });
     inventory.value = response.data.inventory;
@@ -201,7 +210,7 @@ const onStartGame = async () => {
   }
   betAmountError.value = '';
 
-  await fetchInventory();
+  await fetchUseableItem();
   if (inventory.value && inventory.value.length === 0) {
     startGame();
     return;
@@ -275,6 +284,7 @@ const stopTiming = async () => {
   if (currentRound.value > gameRound.value) {
     gameFinished.value = true;
     gameStarted.value = false;
+    showText.value = gameStore.showText;
 
     clearInterval(countdownInterval.value);
   }
@@ -308,20 +318,21 @@ const resetGame = () => {
   gameFinished.value = false;
   countdownTime.value = 180;
   selectedItem.value = null;
+  showText.value = '';
 };
 </script>
 
 <style scoped>
-/* 如果要使用 Orbitron 字體，可在這裡使用 @import 或在index.html匯入 */
 .time-battle-wrapper {
   display: flex;
-  justify-content: center;   /* 水平置中 */
-  align-items: center;       /* 垂直置中 */
+  justify-content: center;
+  /* 水平置中 */
+  align-items: center;
+  /* 垂直置中 */
 }
 
 .time-battle-container {
   font-family: 'Orbitron', sans-serif;
-  /* padding: 2rem; */
   border-radius: 8px;
   color: #e5e5e5;
   padding: 2rem;
@@ -453,6 +464,9 @@ input[type="number"]:focus {
   border-radius: 8px;
   padding: 1rem;
   position: relative;
+  /* ★ 新增以下兩行 ★ */
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .modal-header {
@@ -504,5 +518,38 @@ input[type="number"]:focus {
 
 ::-webkit-scrollbar-track {
   background: #0e0e0e;
+}
+
+.btn-back {
+  position: fixed;
+  /* 使其固定於視窗，不受父層限制 */
+  top: 1rem;
+  left: 1rem;
+  z-index: 999;
+  /* 確保在最上層，避免被其他元素蓋住 */
+
+  /* 其他樣式可自由調整 */
+  background-color: #333;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* 小螢幕固定左上角 */
+@media (max-width: 767px) {
+  .btn-back {
+    top: 1rem;
+    left: 1rem;
+  }
+}
+
+/* 大螢幕可再調整位置 */
+@media (min-width: 768px) {
+  .btn-back {
+    top: 2rem;
+    left: 2rem;
+  }
 }
 </style>

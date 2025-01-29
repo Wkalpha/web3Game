@@ -33,7 +33,8 @@ export const useGameStore = defineStore('game', {
         web3: null,
         walletAddress: null,
         walletConnected: false,
-        login: false
+        login: false,
+        webSocket: null
     }),
     getters: {
         formattedWalletAddress: (state) => {
@@ -132,8 +133,8 @@ export const useGameStore = defineStore('game', {
                         await this.checkUserInfo(message, signature)
                         await useContractStore().initContract(this.web3)
 
-
-                        // this.connectWebSocket()
+                        // 連接 websocket
+                        await this.connect();
                     }
                 } catch (error) {
                     console.error('钱包连接失败:', error)
@@ -211,6 +212,72 @@ export const useGameStore = defineStore('game', {
                 console.error("Error fetching character info:", error);
                 alert("取得角色資訊失敗");
             }
+        },
+        async connect() {
+            const walletAddress = this.walletAddress.toLowerCase();
+            this.webSocket = new WebSocket(`${process.env.VUE_APP_WS_URL}?walletAddress=${walletAddress}`);
+
+            this.webSocket.onopen = () => {
+                const connectTime = new Date().toISOString();
+                console.log(`${connectTime} WebSocket 連接成功，walletAddress:`, walletAddress);
+            };
+
+            this.webSocket.onmessage = (message) => {
+                const ws = JSON.parse(message.data);
+                if (ws.event === 'TokensPurchased') {
+                    if (ws.data.buyer.toLowerCase() === walletAddress) {
+                        this.userInfo.timeCoin = ws.data.userTimeCoin;
+                        this.updateBalance(); // 更新畫面錢包餘額
+                    }
+                }
+
+                if (ws.event === 'TimeCoinToETH') {
+                    if (ws.data.buyer.toLowerCase() === walletAddress) {
+                        this.userInfo.timeCoin = ws.data.userTimeCoin;
+                        this.blockchainConfirm = true;
+                        this.updateBalance(); // 更新畫面錢包餘額
+                    }
+                }
+
+                if (ws.event === 'PrizePoolUpdated') {
+                    this.prizePool = ws.data.prizePoolTimeCoin
+                }
+
+                if (ws.event === 'LeaderboardPrizePoolUpdated') {
+                    this.leaderboardPrizePoolTimeCoin = ws.data.leaderboardPrizePoolTimeCoin
+                }
+
+                if (ws.event === 'TimeCoinChange') {
+                    this.userInfo.timeCoin = ws.data.userTimeCoin;
+                }
+
+                if (ws.event === 'PlayOfTimesChange') {
+                    this.userInfo.leftOfPlay = ws.data.leftOfPlay;
+                }
+
+                if (ws.event === 'GameResult') {
+                    this.showText = ws.data.showText;
+                }
+
+                if (ws.event === 'BadgeChange') {
+                    this.drawBadgeKey += 1;
+                }
+
+                if (ws.event === 'DailyQuestChange') {
+                    this.userDailyQuestKey += 1
+                }
+
+            };
+
+            this.webSocket.onclose = () => {
+                const disconnectTime = new Date().toISOString();
+                console.log(`${disconnectTime} WebSocket 連接已關閉`);
+                this.login = false;
+            };
+
+            this.webSocket.onerror = (error) => {
+                console.error('WebSocket 錯誤:', error);
+            };
         }
     }
 })

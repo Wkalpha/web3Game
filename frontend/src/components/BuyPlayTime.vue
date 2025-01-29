@@ -14,12 +14,14 @@ const timeCoin = ref(null);
 
 const timeCoinToPlayTime = async (inputValue) => {
     try {
-        var response = await axios.post(`${process.env.VUE_APP_API_URL}/update-user-balance-when-buy-playtimes`, {
+        await axios.post(`${process.env.VUE_APP_API_URL}/update-user-balance-when-buy-playtimes`, {
             walletAddress: gameStore.walletAddress,
             playTimes: inputValue
+        }).then(rs=>{
+            gameStore.userInfo.leftOfPlay = rs.data.leftOfPlay;
+            gameStore.userInfo.timeCoin = rs.data.timeCoin;
+            Swal.fire("購買成功")
         });
-
-        console.log(response.data)
     } catch (error) {
         console.error("兌換失敗:", error.message);
     }

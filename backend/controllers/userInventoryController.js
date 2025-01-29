@@ -20,6 +20,22 @@ const getUserInventory = async (req, res) => {
 };
 
 /**
+ * 取得能在戰鬥中使用的道具
+ */
+const getBattleItem = async (req, res) => {
+  const { walletAddress } = req.body;
+  try {
+    const inventory = await userInventoryModel.queryBattleItem(walletAddress);
+
+    res.json({
+      inventory
+    });
+  } catch (error) {
+    res.status(500).json({ error: '取得道具失敗', details: error.message });
+  }
+};
+
+/**
  * 使用道具
  * 1. 根據類型實作不同邏輯
  * 2. 減少道具持有數量
@@ -100,5 +116,6 @@ const useItem = async (req, res) => {
 
 module.exports = {
   getUserInventory,
-  useItem
+  useItem,
+  getBattleItem
 };
