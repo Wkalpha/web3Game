@@ -42,7 +42,7 @@
                         <PrizePool />
                         <div class="action-buttons">
                             <button class="action-btn primary" @click="navigateToPvE">爭奪獎金</button>
-                            <button class="action-btn secondary" @click="navigateToPvE">挑戰玩家</button>
+                            <!-- <button class="action-btn secondary" @click="navigateToPvE">挑戰玩家</button> -->
                         </div>
                     </div>
 
@@ -397,7 +397,6 @@ button:active {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
-    margin-bottom: 1.5rem;
 }
 
 .stat-item {
