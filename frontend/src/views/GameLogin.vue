@@ -35,14 +35,12 @@ watch(() => gameStore.login, (newValue) => {
 
 <style scoped>
 .cyber-login-container {
-  background: linear-gradient(135deg, #0a0a2e 0%, #1a1a4a 100%);
   border-radius: 12px;
   padding: 3rem 2rem;
   max-width: 600px;
   margin: 2rem auto;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 0 40px rgba(0, 247, 255, 0.2);
 }
 
 .cyber-title {

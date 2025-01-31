@@ -33,7 +33,7 @@ export const useGameStore = defineStore('game', {
         web3: null,
         walletAddress: null,
         walletConnected: false,
-        login: false,
+        login: null,
         webSocket: null
     }),
     getters: {
@@ -272,7 +272,6 @@ export const useGameStore = defineStore('game', {
             this.webSocket.onclose = () => {
                 const disconnectTime = new Date().toISOString();
                 console.log(`${disconnectTime} WebSocket 連接已關閉`);
-                this.login = false;
             };
 
             this.webSocket.onerror = (error) => {
