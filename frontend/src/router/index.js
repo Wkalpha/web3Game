@@ -2,9 +2,13 @@ import { createRouter, createWebHistory } from 'vue-router';
 import GameIndex from '@/views/GameIndex.vue';
 import GameLogin from '@/views/GameLogin.vue';
 import TestPage from '@/views/TestPage.vue';
+import FakeDoor from '@/views/FakeDoor.vue';
 import PvE from '@/views/PvE.vue';
+import PvP from '@/views/PvPRooms.vue';
 import { useGameStore } from '@/stores/game';
 import { useContractStore } from '@/stores/contract';
+import RoomWait from '@/views/RoomWait.vue';
+import PvPGamePlay from '@/views/PvPGamePlay.vue';
 
 const routes = [
   {
@@ -16,19 +20,43 @@ const routes = [
     path: '/index',
     name: 'GameIndex',
     component: GameIndex,
-    meta: { requiresAuth: true }  // 需要登入
+    meta: { requiresAuth: true }
   },
   {
     path: '/pve',
     name: 'PvE',
     component: PvE,
-    meta: { requiresAuth: true }  // 需要登入
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/pvp',
+    name: 'PvP',
+    component: PvP,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/pvp/gameplay/:roomId',
+    name: 'PvPGamePlay',
+    component: PvPGamePlay,
+    props: true, // 讓 roomId 傳遞到組件內
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/pvp/:roomId',
+    name: 'RoomWait',
+    component: RoomWait,
+    props: true // 讓 roomId 傳遞到組件內
   },
   {
     path: '/testpage',
     name: 'TestPage',
     component: TestPage
-  }
+  },
+  {
+    path: '/intro1',
+    name: 'FakeDoor',
+    component: FakeDoor
+  },
 ];
 
 const router = createRouter({

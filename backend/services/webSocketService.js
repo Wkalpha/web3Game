@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const gameInfoModel = require('../models/gameInfoModel');
+const redisClient = require('../services/redis');
 const url = require('url'); // 解析 URL 查詢參數
 
 class WebSocketService {
@@ -33,14 +34,155 @@ class WebSocketService {
             }
 
             this.clients.set(walletAddress, ws);
-            //   this.listConnectedClients();
+
+            // **新增：處理前端發送過來的訊息**
+            ws.on('message', async (message) => {
+                try {
+                    // 嘗試解析前端發送的 JSON 訊息
+                    const parsedMessage = JSON.parse(message);
+
+                    // **在這裡根據 parsedMessage.event 來處理不同的前端事件**
+                    if (parsedMessage.event === 'startTimer') {
+                        // 處理名為 'startTimer' 的事件
+                        const startTimerData = parsedMessage.data;
+
+                        const raw = await redisClient.get(`roomDetail:${startTimerData.roomId}`);
+
+                        const roomInfo = JSON.parse(raw);
+
+                        // 根據 startTimerData.walletAddress 去 roomDetail 的 players 找到對應的玩家
+                        const player = roomInfo.players.find(player => player.walletAddress === startTimerData.walletAddress);
+
+                        if (player) {
+                            if (!player.gameInfo) {
+                                // 如果 player 沒有 GameInfo 屬性，則新增一個空的陣列
+                                player.gameInfo = [];
+                            }
+
+                            // 取得最新的 round number
+                            let latestRound = player.gameInfo.length > 0 ? player.gameInfo[player.gameInfo.length - 1].round : 0;
+
+                            latestRound += 1;
+
+                            // 將新的 round 資訊加入到 GameInfo 陣列中
+                            player.gameInfo.push({
+                                round: latestRound,
+                                startTimer: Date.now()
+                            });
+
+                            // 將更新後的 roomInfo 存回 Redis
+                            await redisClient.set(`roomDetail:${startTimerData.roomId}`, JSON.stringify(roomInfo));
+
+                        } else {
+                            console.log("找不到玩家資料");
+                        }
+
+                    } else if (parsedMessage.event === 'endTimer') {
+                        const endTimerData = parsedMessage.data;
+
+                        const raw = await redisClient.get(`roomDetail:${endTimerData.roomId}`);
+
+                        const roomInfo = JSON.parse(raw);
+
+                        const player = roomInfo.players.find(player => player.walletAddress === endTimerData.walletAddress);
+
+                        if (player) {
+                            // 找 GameInfo 裡面沒有 endTimer 屬性的那筆
+                            const gameInfoWithoutEndTimer = player.gameInfo.filter(gameInfo => !gameInfo.endTimer);
+
+                            if (gameInfoWithoutEndTimer.length === 0) {
+                                console.log(`GameInfo 中找不到沒有 endTimer 的回合資訊`);
+                                return; // 找不到沒有 endTimer 的回合資訊，直接返回
+                            }
+
+                            // endTimer 為 Date.now()，score 為差異
+                            const endTime = Date.now(); // 取得結束時間
+                            const elapsedTime = (((endTime - gameInfoWithoutEndTimer[0].startTimer) % 60000) / 1000).toFixed(2);
+                            const difference = Math.abs(elapsedTime - roomInfo.targetTime[gameInfoWithoutEndTimer[0].round - 1]);
+                            let scores = Math.max(0, Math.floor((1 - difference / 10) * 10));
+
+                            gameInfoWithoutEndTimer[0].endTimer = endTime;
+                            gameInfoWithoutEndTimer[0].scores = scores;
+
+                            if (typeof player.totalScores !== 'number') {
+                                player.totalScores = 0;
+                            }
+
+                            player.totalScores += scores;
+
+                            if (gameInfoWithoutEndTimer[0].round >= 10) {
+                                player.finishedGame = true;
+
+                                // 檢查 roomDetail 內的所有玩家的 finishedGame 是否都是 true
+                                const allFinished = roomInfo.players.every(player => player.finishedGame === true);
+
+                                if (allFinished) {
+                                    // 比對所有玩家的 totalScores，找出最高分者，roomDetail 新增一個屬性 winner 存放 walletAddress
+                                    let winner = null;
+                                    let maxScore = -1;
+                                    for (const player of roomInfo.players) {
+                                        if (player.totalScores > maxScore) {
+                                            maxScore = player.totalScores;
+                                            winner = player.walletAddress;
+                                        }
+                                    }
+                                    roomInfo.winner = winner;
+                                    roomInfo.gameOver = true;
+
+                                    // TODO 進行獎勵派發(房主抽成(10%)、派發給優勝者(85%)、獎金池(5%))、紀錄LOG...等
+                                }
+                            }
+
+                            roomInfo.players.forEach(player => {
+                                const messgae = {
+                                    event: 'pvpGameResult',
+                                    data: {
+                                        roomInfo
+                                    }
+                                }
+                                this.broadcastToClient(player.walletAddress, messgae);
+                            });
+
+                            // 如果遊戲結束，則從 Redis 中刪除 roomDetail；否則更新 roomInfo
+                            if (roomInfo.gameOver) {
+                                await redisClient.del(`roomDetail:${endTimerData.roomId}`);
+                            } else {
+                                await redisClient.set(`roomDetail:${endTimerData.roomId}`, JSON.stringify(roomInfo));
+                            }
+
+                        } else {
+                            console.log("找不到玩家資料");
+                        }
+                    } else if (parsedMessage.event === 'anotherEvent') {
+                        // 處理另一個名為 'anotherEvent' 的事件 (您可以根據需要新增更多事件處理)
+                        console.log(`收到 'anotherEvent' 事件，資料:`, parsedMessage.data);
+                        // ... 針對 'anotherEvent' 的後端邏輯 ...
+                    }
+                    // ... 可以繼續新增更多事件類型的處理 ...
+
+                } catch (error) {
+                    console.error('解析前端訊息錯誤:', error);
+                    // 可以選擇回覆錯誤訊息給前端，告知訊息格式不正確
+                    const errorMessage = {
+                        event: 'errorMessage',
+                        data: {
+                            error: '訊息格式不正確，請發送 JSON 格式訊息'
+                        }
+                    };
+                    this.broadcastToClient(walletAddress, errorMessage);
+                }
+            });
 
             // 當 WebSocket 斷開連接時，從列表中移除客戶端
-            ws.on('close', (code, reason) => {
+            ws.on('close', async (code, reason) => {
                 const disconnectTime = new Date().toISOString();
                 console.log(`${disconnectTime}客戶端已斷開連接，walletAddress: ${walletAddress}，代碼:${code}，原因:${reason}`);
                 gameInfoModel.forceEndGame(walletAddress);
                 this.clients.delete(walletAddress);
+
+                // TODO
+                // 思考當玩家斷線，PVP會發生什麼樣的事情?
+                // 需要確定的是，要將 roomDetail 從 redis 刪除
             });
 
             // 4 WebSocket 錯誤處理

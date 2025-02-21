@@ -10,5 +10,4 @@ router.post('/start-timer', gameController.startTimer);
 router.post('/end-timer', gameController.endTimer);
 router.post('/game-log', gameController.gameLog);
 
-
 module.exports = router;

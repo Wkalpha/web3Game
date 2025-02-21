@@ -20,7 +20,8 @@ const createDailyQuestsTable = async () => {
         VALUES 
         ('獲勝 5 次', 5, 50),
         ('抽任意獎池 1 次', 1, 50),
-        ('排行榜下注 1 次', 1, 100);
+        ('排行榜下注 1 次', 1, 100),
+        ('每日登入 1 次', 1, 50);
     `;
 
     await pool.execute(insertDataSql);

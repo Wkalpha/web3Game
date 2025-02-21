@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-2NTCY6PHMC"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-2NTCY6PHMC');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Battle DApp - Play to Earn 時間競技區塊鏈遊戲 | 挑戰時間感知，贏 ETH 獎勵！</title>
+    <meta name="description"
+        content="Time Battle DApp 是一款創新的 Play to Earn 區塊鏈遊戲，挑戰你的時間感知能力！純技術時間競技，邊玩邊賺 ETH 區塊鏈獎勵！立即免費遊玩，挑戰時間極限！">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            /* Modern, techy font */
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #0a0a0a, #1a1a1a);
+            /* Dark gradient background */
+            color: #e0e0e0;
+            /* Slightly softer light text color */
+            overflow-x: hidden;
+            /* Prevent horizontal scrollbar */
+        }
+
+        .container {
+            width: 85%;
+            /* Slightly wider container for a more spacious feel */
+            max-width: 1200px;
+            /* Maximum width for larger screens */
+            margin: auto;
+            overflow: hidden;
+        }
+
+        header {
+            background: rgba(30, 30, 30, 0.85);
+            /* Semi-transparent header background */
+            backdrop-filter: blur(10px);
+            /* Apply blur for a glassmorphism effect */
+            color: #fff;
+            padding-top: 40px;
+            /* Increased header padding */
+            padding-bottom: 30px;
+            min-height: 80px;
+            /* Increased header height */
+            border-bottom: 2px solid #00bcd4;
+            /* Electric blue accent border */
+            text-align: center;
+            box-shadow: 0 0 15px rgba(0, 188, 212, 0.3);
+            /* Subtle glow effect */
+        }
+
+        header h1 {
+            margin: 0 0 10px 0;
+            /* Added margin below h1 */
+            padding: 10px;
+            font-size: 2.5em;
+            /* Slightly larger title */
+            letter-spacing: 1px;
+            /* Slight letter spacing for a techy look */
+            text-shadow: 0 0 8px rgba(0, 188, 212, 0.5);
+            /* Text glow effect */
+        }
+
+        header p {
+            padding: 10px;
+            font-size: 1.2em;
+            font-weight: 300;
+            /* Lighter font weight for subheading */
+            color: #ccc;
+            /* Slightly softer subheading color */
+        }
+
+        section {
+            padding: 30px;
+            /* Increased section padding */
+            text-align: center;
+            background: rgba(25, 25, 25, 0.75);
+            /* Semi-transparent section background */
+            backdrop-filter: blur(8px);
+            /* Apply blur to sections */
+            margin-bottom: 30px;
+            /* Increased spacing between sections */
+            border-radius: 12px;
+            /* More rounded corners for sections */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            /* Deeper shadow for sections */
+            border: 1px solid #333;
+            /* Subtle border for sections */
+        }
+
+        section h2 {
+            font-size: 2.2em;
+            /* Larger section titles */
+            color: #00bcd4;
+            /* Electric blue accent color */
+            text-shadow: 0 0 6px rgba(0, 188, 212, 0.7);
+            /* Title glow effect */
+            margin-bottom: 20px;
+            /* Added margin below section titles */
+        }
+
+        section p {
+            font-size: 1.15em;
+            /* Slightly larger paragraph text */
+            line-height: 1.7em;
+            /* Increased line height for better readability */
+            color: #ddd;
+            /* Slightly brighter paragraph text color */
+            font-weight: 300;
+        }
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 30px;
+            /* Increased margin below features list */
+        }
+
+        .features-list li {
+            background: rgba(35, 35, 35, 0.9);
+            /* Even darker list item background */
+            color: #e0e0e0;
+            padding: 20px;
+            /* Increased list item padding */
+            margin: 15px 0;
+            /* Increased margin for list items */
+            border-radius: 8px;
+            /* Rounded corners for list items */
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+            /* Deeper shadow for list items */
+            border: 1px solid #444;
+            /* Subtle border for list items */
+            transition: transform 0.2s ease-in-out;
+            /* Smooth hover effect */
+        }
+
+        .features-list li:hover {
+            transform: translateY(-3px);
+            /* Slight lift on hover */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.7);
+            /* Enhanced shadow on hover */
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 18px 35px;
+            /* Larger button padding */
+            background-color: #00bcd4;
+            /* Electric blue button color */
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            /* Rounded corners for button */
+            text-decoration: none;
+            font-size: 1.3em;
+            /* Larger button text */
+            margin-top: 30px;
+            /* Increased button margin */
+            font-weight: 500;
+            /* Slightly bolder button text */
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 10px rgba(0, 188, 212, 0.6);
+            /* Button glow effect */
+            transition: background-color 0.3s ease;
+            /* Smooth button hover transition */
+        }
+
+        .cta-button:hover {
+            background-color: #00a3b8;
+            /* Darker hover color for button */
+            box-shadow: 0 0 15px rgba(0, 188, 212, 0.8);
+            /* Enhanced glow on hover */
+        }
+
+        .play-steps {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            padding: 30px 0;
+            /* Increased play steps padding */
+        }
+
+        .play-step {
+            width: 30%;
+            min-width: 250px;
+            /* Slightly wider play steps */
+            margin-bottom: 30px;
+            /* Increased play step margin */
+            background: rgba(35, 35, 35, 0.9);
+            /* Darker play step background */
+            color: #e0e0e0;
+            padding: 25px;
+            /* Increased play step padding */
+            border-radius: 8px;
+            /* Rounded corners for play steps */
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+            /* Deeper shadow for play steps */
+            border: 1px solid #444;
+            /* Subtle border for play steps */
+        }
+
+        .play-step h3 {
+            color: #00bcd4;
+            /* Electric blue play step title */
+            font-size: 1.6em;
+            /* Larger play step titles */
+            margin-bottom: 15px;
+            /* Added margin below play step titles */
+            text-shadow: 0 0 4px rgba(0, 188, 212, 0.5);
+            /* Play step title glow */
+        }
+
+        .difficulty-modes {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            padding: 30px 0;
+            /* Increased difficulty modes padding */
+        }
+
+        .difficulty-mode {
+            width: 30%;
+            min-width: 250px;
+            /* Slightly wider difficulty modes */
+            margin-bottom: 30px;
+            /* Increased difficulty mode margin */
+            background: rgba(35, 35, 35, 0.9);
+            /* Darker difficulty mode background */
+            color: #e0e0e0;
+            padding: 25px;
+            /* Increased difficulty mode padding */
+            border-radius: 8px;
+            /* Rounded corners for difficulty modes */
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+            /* Deeper shadow for difficulty modes */
+            border: 1px solid #444;
+            /* Subtle border for difficulty modes */
+        }
+
+        .difficulty-mode h4 {
+            color: #00bcd4;
+            /* Electric blue difficulty mode title */
+            font-size: 1.4em;
+            /* Larger difficulty mode titles */
+            margin-bottom: 15px;
+            /* Added margin below difficulty mode titles */
+            text-shadow: 0 0 4px rgba(0, 188, 212, 0.5);
+            /* Difficulty mode title glow */
+        }
+
+        .tokenomics-benefits {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 30px;
+            /* Increased tokenomics benefits margin */
+        }
+
+        .tokenomics-benefits li {
+            background: rgba(35, 35, 35, 0.9);
+            /* Darker tokenomics benefit background */
+            color: #e0e0e0;
+            padding: 20px;
+            /* Increased tokenomics benefit padding */
+            margin: 15px 0;
+            /* Increased margin for tokenomics benefits */
+            border-radius: 8px;
+            /* Rounded corners for tokenomics benefits */
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+            /* Deeper shadow for tokenomics benefits */
+            border: 1px solid #444;
+            /* Subtle border for tokenomics benefits */
+            text-align: left;
+            transition: background-color 0.3s ease;
+            /* Smooth background transition */
+        }
+
+        .tokenomics-benefits li:hover {
+            background-color: rgba(45, 45, 45, 0.95);
+            /* Slightly lighter hover background */
+        }
+
+        footer {
+            padding: 30px;
+            /* Increased footer padding */
+            background: #222;
+            /* Darker footer background */
+            color: #ccc;
+            text-align: center;
+            border-top: 2px solid #00bcd4;
+            /* Electric blue footer border */
+            box-shadow: 0 -2px 10px rgba(0, 188, 212, 0.2);
+            /* Subtle top shadow for footer */
+        }
+
+        footer p {
+            margin: 0;
+            font-size: 0.95em;
+            /* Slightly smaller footer text */
+            font-weight: 300;
+        }
+
+        footer .social-links a {
+            display: inline-block;
+            margin: 0 15px;
+            /* Increased social link margin */
+            color: #fff;
+            text-decoration: none;
+            font-size: 1.6em;
+            /* Larger social link icons */
+            opacity: 0.8;
+            /* Slightly faded social icons */
+            transition: opacity 0.2s ease-in-out;
+            /* Smooth social icon hover effect */
+        }
+
+        footer .social-links a:hover {
+            opacity: 1;
+            /* Social icons fully opaque on hover */
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1>Time Battle DApp</h1>
+            <p>Play to Earn 時間競技區塊鏈遊戲 - 挑戰你的時間感知極限，贏取 ETH 獎勵！</p>
+            <a href="https://play.gameneolink.online/" class="cta-button">立即遊玩</a>
+        </div>
+    </header>
+
+    <section id="game-intro">
+        <div class="container">
+            <h2>什麼是 Time Battle DApp？ - 創新時間競技 Play to Earn 區塊鏈遊戲</h2>
+            <p>Time Battle DApp 是一款獨特的區塊鏈遊戲，將 <strong>時間競技的刺激</strong> 與 <strong>區塊鏈獎勵的誘人</strong>
+                完美結合。遊戲玩法簡單直覺，卻充滿挑戰性。你需要在每回合中精準感知秒數，點擊計時器，盡可能接近系統隨機生成的「目標時間」。誤差越小，得分越高！累積足夠分數，即可贏得遊戲，並透過多種途徑賺取遊戲代幣
+                TC，兌換真實的 ETH 獎勵！</p>
+
+            <h2>Time Battle DApp 遊戲特色 - 純技術對決，邊玩邊賺 ETH</h2>
+            <ul class="features-list">
+                <li><strong>純技術對決，公平競技：</strong> 告別運氣成分，Time Battle DApp 完全仰賴你的時間感知能力，技術才是王道！</li>
+                <li><strong>簡單易上手，深度挑戰：</strong> 玩法簡潔直覺，新手也能快速入門，但要精通卻需要不斷練習和精進。</li>
+                <li><strong>區塊鏈獎勵，邊玩邊賺 ETH：</strong> 透過遊戲、任務、競賽等多種方式賺取 TC 代幣，兌換 ETH，真正實現 Play-to-Earn！</li>
+                <li><strong>低門檻參與，無需 NFT：</strong> 無需預購 NFT，直接使用 ETH 兌換 TC 即可開始遊玩，輕鬆進入 Web3 遊戲世界。</li>
+                <li><strong>社交競技，預測瓜分獎池：</strong> 參與排行榜冠軍預測，與其他玩家一同享受社交競技的樂趣，瓜分豐厚獎勵！</li>
+            </ul>
+        </div>
+    </section>
+
+    <section id="how-to-play">
+        <div class="container">
+            <h2>如何遊玩 Time Battle DApp？ - 三步驟快速上手，挑戰時間競技</h2>
+            <p>簡單三步驟，立即開始你的時間挑戰！</p>
+            <div class="play-steps">
+                <div class="play-step">
+                    <h3>1. 連結錢包</h3>
+                    <p>使用您的 Web3 錢包 (例如 MetaMask) 連結 Time Battle DApp。</p>
+                </div>
+                <div class="play-step">
+                    <h3>2. 兌換 TC 代幣</h3>
+                    <p>使用 ETH 兌換遊戲代幣 TC，作為遊戲入場券。</p>
+                </div>
+                <div class="play-step">
+                    <h3>3. 開始遊戲</h3>
+                    <p>選擇難度模式，挑戰你的時間感知，贏取 TC 代幣和 ETH 獎勵！</p>
+                </div>
+            </div>
+
+            <h2>Time Battle DApp 難度模式 - 新手、進階、專家，挑戰你的極限</h2>
+            <div class="difficulty-modes">
+                <div class="difficulty-mode">
+                    <h4>新手模式</h4>
+                    <p>目標時間範圍較寬鬆，適合新手玩家熟悉遊戲玩法，輕鬆上手。</p>
+                </div>
+                <div class="difficulty-mode">
+                    <h4>進階模式</h4>
+                    <p>目標時間範圍縮小，更具挑戰性，獎勵也更豐厚，適合有一定經驗的玩家。</p>
+                </div>
+                <div class="difficulty-mode">
+                    <h4>專家模式</h4>
+                    <p>目標時間範圍極窄，極度考驗時間感知能力，獎勵最為豐厚，專為時間競技高手設計！</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="tokenomics">
+        <div class="container">
+            <h2>Play to Earn 區塊鏈獎勵 - 玩 Time Battle DApp，賺取 ETH！</h2>
+            <p>TC 代幣是 Time Battle DApp 的遊戲代幣，擁有豐富的用途和賺取方式：</p>
+            <ul class="tokenomics-benefits">
+                <li><strong>參與遊戲：</strong> TC 是進入 Time Battle DApp 世界的通行證。</li>
+                <li><strong>兌換 ETH：</strong> 將累積的 TC 代幣兌換成 ETH，實現 Play-to-Earn。</li>
+                <li><strong>參與排行榜預測：</strong> 使用 TC 代幣下注預測每周排行榜冠軍，瓜分獎勵。</li>
+                <li><strong>(未來更多用途)：</strong> 未來 TC 代幣將有更多應用場景，敬請期待！</li>
+            </ul>
+
+            <h3>TC 代幣多種賺取方式 - 每日任務、排行榜、下注預測、遊戲獎勵</h3>
+            <ul class="tokenomics-benefits">
+                <li><strong>遊戲獎勵：</strong> 在 Time Battle DApp 遊戲中獲勝，即可獲得 TC 代幣獎勵。</li>
+                <li><strong>每日任務：</strong> 完成每日任務，輕鬆賺取 TC 代幣。</li>
+                <li><strong>排行榜競賽：</strong> 躋身每周排行榜前列，獲得豐厚 TC 獎勵。</li>
+                <li><strong>下注預測獎勵：</strong> 成功預測每周排行榜冠軍，瓜分獎勵池。</li>
+                <li><strong>每周動態獎池：</strong> 每周獎池根據遊戲活躍度動態調整，獎勵豐厚！</li>
+            </ul>
+
+        </div>
+    </section>
+
+    <section id="cta">
+        <div class="container">
+            <h2>立即加入 Time Battle DApp - 開啟你的 Play to Earn 時間競技區塊鏈遊戲之旅！</h2>
+            <a href="https://play.gameneolink.online/" class="cta-button">立即遊玩</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="social-links">
+            </div>
+            <p>© 2025 Time Battle DApp. All rights reserved.</p>
+        </div>
+    </footer>
+
+</body>
+
+</html>

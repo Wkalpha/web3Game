@@ -9,6 +9,7 @@ const badgeModel = require('../models/badgeModel');
 const webSocketService = require('../services/webSocketService');
 const gameLevelModel = require('../models/gameLevelModel');
 const dailyQuestModel = require('../models/dailyQuestModel');
+const redisClient = require('../services/redis');
 const { v4: uuidv4 } = require('uuid');
 
 /**
@@ -217,7 +218,7 @@ const gameOver = async (gameId) => {
         const gameResult = determineGameResult(totalScore, gameLevelInfo.Threshold);
 
         let userTimeCoinOdds = gameResult.winOrLose === 'win' ? parseFloat(gameInfo.Odds) : 0;
-        const prizePoolOdds = gameResult.winOrLose === 'lose' ? 1 : (1-parseFloat(gameInfo.Odds));
+        const prizePoolOdds = gameResult.winOrLose === 'lose' ? 1 : (1 - parseFloat(gameInfo.Odds));
 
         // 取得 UserInfo 資訊
         const userInfo = await userModel.getBaseInfo(gameInfo.WalletAddress);
@@ -265,7 +266,7 @@ const gameOver = async (gameId) => {
             }
         };
 
-        const rewardAmount = parseFloat(gameInfo.BetAmount) * (userTimeCoinOdds-1);
+        const rewardAmount = parseFloat(gameInfo.BetAmount) * (userTimeCoinOdds - 1);
         const gameResultMessage = {
             event: 'GameResult',
             data: {
@@ -280,7 +281,7 @@ const gameOver = async (gameId) => {
         webSocketService.sendToPlayerMessage(gameInfo.WalletAddress, gameResultMessage);
 
         // 獲勝時，更新每日任務進度
-        if(gameResult.winOrLose === 'win'){
+        if (gameResult.winOrLose === 'win') {
             await dailyQuestModel.updateQuestProgress(userInfo.WalletAddress, 1);
         }
 
@@ -296,6 +297,42 @@ const gameOver = async (gameId) => {
         console.error('遊戲結束但發生錯誤', err);
     }
 };
+
+/**
+ * 建立 PVP 房間
+ * @returns roomId
+ */
+const createRoom = async (req, res) => {
+    const { betAmount, minBet, password, players } = req.body;
+
+    const roomId = uuidv4();
+
+    const roomData = {
+        id: roomId,
+        betAmount,
+        players,
+        minBet,
+        password,
+        hasPassword: !!password,
+        currentPlayerCount: 0, // 目前人數
+        isOpen: true,          // 是否開放加入
+        createTime: Date.now() // 紀錄建立時間
+    };
+
+    // 3. 存到 Redis, key: room:{roomId} => JSON
+    await redisClient.set(`room:${roomId}`, JSON.stringify(roomData));
+
+    // 4. 為了能夠做分頁排序，使用 ZSET 來儲存
+    //    這裡用 createTime 當 score (越新的越後面)
+    //    或是用 minBet 當 score 依下注金額排序
+    await redisClient.zAdd('roomList', [
+        { score: roomData.createTime, value: roomId }
+    ]);
+
+    res.json({
+        roomId
+    });
+}
 
 /**
  * 取得 GameId 的 GameLog
@@ -348,5 +385,6 @@ module.exports = {
     startTimer,
     endTimer,
     gameOver,
-    gameLog
+    gameLog,
+    createRoom
 };

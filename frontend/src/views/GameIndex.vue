@@ -42,7 +42,8 @@
                         <PrizePool />
                         <div class="action-buttons">
                             <button class="action-btn primary" @click="navigateToPvE">爭奪獎金</button>
-                            <!-- <button class="action-btn secondary" @click="navigateToPvE">挑戰玩家</button> -->
+                            <button class="action-btn secondary" @click="navigateToPvP">挑戰玩家</button>
+                            <button @click="playground">測試</button>
                         </div>
                     </div>
 
@@ -130,6 +131,22 @@ const navigateToPvE = () => {
 
     // 若上面的檢核全部通過，就可以執行跳轉
     router.push('/pve');
+};
+
+const navigateToPvP = () => {
+    router.push('/pvp');
+};
+
+const playground = async () => {
+    const message = {
+        event: 'startTiming',
+        data: {
+            walletAddress: gameStore.walletAddress,
+            roomId: 'roomId-playground'
+        }
+    }
+    gameStore.webSocket.send(JSON.stringify(message));
+    console.log("playground")
 };
 
 </script>

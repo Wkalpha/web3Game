@@ -29,12 +29,31 @@ export const useGameStore = defineStore('game', {
         showText: '',
         drawBadgeKey: 0,
         userDailyQuestKey: 0,
+
+        // PvP 相關 Store
+        rooms: [],
+        page: 1,             // 分頁
+        limit: 5,            // 每頁顯示房間數量
+        loading: false,      // 請求狀態
+        allLoaded: false,    // 是否已加載所有房間
+        sortBy: '',          // 排序條件
+        filterMinBet: '',     // 搜尋條件 (最小下注金額)
+        joinRoomKey: 0,
+        roomDestroyKey: 0,
+        roomDetail: null, // 裡面會記錄玩家、目標時間(後端產)
+        roomStartKey: 0,
+        kickPlayerKey: 0,
+        pvpGameResultKey:0,
+
         referredBy: null,
         web3: null,
         walletAddress: null,
         walletConnected: false,
         login: null,
-        webSocket: null
+        webSocket: null,
+        pvpRoomInfo: {
+            token: null,
+        },
     }),
     getters: {
         formattedWalletAddress: (state) => {
@@ -264,7 +283,51 @@ export const useGameStore = defineStore('game', {
                 }
 
                 if (ws.event === 'DailyQuestChange') {
-                    this.userDailyQuestKey += 1
+                    this.userDailyQuestKey += 1;
+                }
+
+                // PvP 房間被建立
+                if (ws.event === 'RoomCreated') {
+                    this.loadRooms(true);
+                }
+
+                // 玩家加入 PvP 房間
+                if (ws.event === 'PlayerJoinRoom') {
+                    this.updateRoom(ws.data);
+                    this.joinRoomKey += 1;
+                }
+
+                // 玩家離開 PvP 房間
+                if (ws.event === 'PlayerLeaveRoom') {
+                    this.updateRoom(ws.data);
+                    this.joinRoomKey += 1;
+                }
+
+                // PvP 房間被銷毀
+                if (ws.event === 'PvPRoomDestroy') {
+                    this.loadRooms(true);
+                    this.roomDestroyKey += 1;
+                }
+
+                // PvP 房間內狀態更新
+                if (ws.event === 'RoomStatusUpdate') {
+                    this.updateRoomDetail(ws.data);
+                }
+
+                // PvP 開始
+                if (ws.event === 'PvPGameStart') {
+                    this.roomStartKey += 1;
+                    this.pvpGameStart(ws.data.roomInfo);
+                }
+
+                // PvP 剔除玩家
+                if (ws.event === 'kickPlayer') {
+                    this.kickPlayerKey += 1;
+                }
+
+                // PvP 結果(每當有任何玩家進行攻擊、結算)
+                if (ws.event === 'pvpGameResult') {
+                    this.roomDetail = ws.data.roomInfo;
                 }
 
             };
@@ -277,6 +340,65 @@ export const useGameStore = defineStore('game', {
             this.webSocket.onerror = (error) => {
                 console.error('WebSocket 錯誤:', error);
             };
+        },
+
+        // 初始載入房間列表
+        async loadRooms(reset = false) {
+            if (this.loading) return;
+            this.loading = true;
+
+            try {
+                // 如果重置查詢（例如重新搜尋或排序變更），需要重置狀態
+                if (reset) {
+                    this.page = 1;
+                    this.rooms = [];
+                    this.allLoaded = false;
+                }
+
+                const params = {
+                    page: this.page,
+                    limit: this.limit,
+                    sortBy: this.sortBy,
+                    filterMinBet: this.filterMinBet !== '' ? this.filterMinBet : undefined
+                };
+
+                const { data } = await axios.get(`${process.env.VUE_APP_API_URL}/rooms`, { params });
+
+                if (data.success) {
+                    if (data.rooms.length > 0) {
+                        this.rooms.push(...data.rooms);
+                        this.page++;
+                    } else {
+                        this.allLoaded = true;
+                    }
+                }
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        updateRoom(updatedRoom) {
+            const roomIndex = this.rooms.findIndex(room => room.id === updatedRoom.id);
+            if (roomIndex !== -1) {
+                this.rooms[roomIndex] = { ...this.rooms[roomIndex], ...updatedRoom };
+            }
+        },
+
+        updateRoomDetail(updateRoomDeatil) {
+            const playerIndex = this.roomDetail.players.findIndex(p => p.walletAddress === updateRoomDeatil.walletAddress);
+            if (playerIndex !== -1) {
+                this.roomDetail.players[playerIndex] = { ...this.roomDetail.players[playerIndex], ...updateRoomDeatil };
+            }
+        },
+
+        pvpGameStart(roomData){
+            this.roomDetail = roomData;
+        },
+
+        resetRooms() {
+            this.rooms = [];
+            this.page = 1;
+            this.allLoaded = false;
         }
     }
 })

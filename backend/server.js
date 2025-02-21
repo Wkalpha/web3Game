@@ -13,6 +13,9 @@ const userDrawLogRoutes = require('./routes/userDrawLogRoutes.js');
 const badgeRoutes = require('./routes/badgeRoutes.js');
 const dailyQuestRoutes = require('./routes/dailyQuestRoutes.js');
 const referralRoutes = require('./routes/referralRoutes.js');
+const pvpRoutes = require('./routes/pvpRoutes.js');
+const clickTraceLogRoutes = require('./routes/clickTraceLogRoutes.js');
+const reserveRoutes = require('./routes/reserveRoutes.js');
 
 require('./database/index.js'); // 建立 Table、Function、Event
 const { initWebSocketService } = require('./services/webSocketService');
@@ -30,7 +33,7 @@ const globalLimiter = rateLimit({
 });
 
 // 為所有的請求應用速率限制器
-app.use(globalLimiter); 
+app.use(globalLimiter);
 
 app.use(cors());
 app.use(express.json());
@@ -51,6 +54,10 @@ app.use('/api', userDrawLogRoutes);
 app.use('/api', badgeRoutes);
 app.use('/api', dailyQuestRoutes);
 app.use('/api', referralRoutes);
+app.use('/api', referralRoutes);
+app.use('/api', pvpRoutes);
+app.use('/api', clickTraceLogRoutes);
+app.use('/api', reserveRoutes);
 
 // 監聽合約事件
 handleTokensPurchased();
