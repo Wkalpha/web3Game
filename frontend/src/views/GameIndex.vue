@@ -43,7 +43,6 @@
                         <div class="action-buttons">
                             <button class="action-btn primary" @click="navigateToPvE">爭奪獎金</button>
                             <button class="action-btn secondary" @click="navigateToPvP">挑戰玩家</button>
-                            <button @click="playground">測試</button>
                         </div>
                     </div>
 
@@ -135,18 +134,6 @@ const navigateToPvE = () => {
 
 const navigateToPvP = () => {
     router.push('/pvp');
-};
-
-const playground = async () => {
-    const message = {
-        event: 'startTiming',
-        data: {
-            walletAddress: gameStore.walletAddress,
-            roomId: 'roomId-playground'
-        }
-    }
-    gameStore.webSocket.send(JSON.stringify(message));
-    console.log("playground")
 };
 
 </script>

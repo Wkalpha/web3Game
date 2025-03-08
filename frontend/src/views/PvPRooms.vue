@@ -89,81 +89,110 @@ function handleScroll() {
 }
 
 const router = useRouter();
-/**
- * 建立房間
- */
+
 async function createRoom() {
   try {
-    // 顯示 swal 表單
-    const { value: formValues } = await Swal.fire({
-      title: '建立房間',
-      html:
-        `<label for="players">選擇人數 (2~5 人):</label><br>
-        <select id="players" class="swal2-input">
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-        </select><br>
+    // 選擇人數
+    const { value: players } = await Swal.fire({
+      title: '選擇人數',
+      input: 'select',
+      inputOptions: {
+        2: '2 人',
+        3: '3 人',
+        4: '4 人',
+        5: '5 人'
+      },
+      inputPlaceholder: '選擇房間人數',
+      showCancelButton: true
+    });
 
-        <label for="minBet">最低下注金額:</label><br>
-        <input type="number" id="minBet" class="swal2-input" min="1" placeholder="請輸入正整數" required><br>
+    if (!players) return;
 
-        <label for="betAmount">下注金額:</label><br>
-        <input type="number" id="betAmount" class="swal2-input" min="1" placeholder="請輸入正整數" required><br>
-
-        <label for="password">房間密碼 (選填，4 位英數混合):</label><br>
-        <input type="text" id="password" class="swal2-input" maxlength="4" placeholder="如需密碼保護請輸入">`,
-
-      focusConfirm: false,
-      preConfirm: () => {
-        const players = document.getElementById('players').value;
-        const minBet = document.getElementById('minBet').value;
-        const betAmount = document.getElementById('betAmount').value;
-        const password = document.getElementById('password').value;
-
-        // 驗證輸入
-        if (!minBet || minBet <= 0 || isNaN(minBet)) {
-          Swal.showValidationMessage('最低下注金額必須為正整數');
-          return false;
+    // 最低下注金額
+    const { value: minBet } = await Swal.fire({
+      title: '最低下注金額',
+      input: 'number',
+      inputPlaceholder: '請輸入最低下注金額',
+      inputAttributes: {
+        min: 1,
+        step: 1
+      },
+      showCancelButton: true,
+      inputValidator: (value) => {
+        const numericValue = Number(value);
+        if (!numericValue || numericValue <= 0 || !Number.isInteger(numericValue)) {
+          return '請輸入有效的正整數作為最低下注金額';
         }
-        if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
-          Swal.showValidationMessage('下注金額必須為正整數');
-          return false;
-        }
-        if (password && !/^[a-zA-Z0-9]{4}$/.test(password)) {
-          Swal.showValidationMessage('密碼必須是 4 位的英文字母或數字組合，不可包含符號');
-          return false;
-        }
-        return { players, minBet, betAmount, password };
       }
     });
 
-    if (formValues) {
-      // 構建 payload 並呼叫 API
-      const payload = {
-        walletAddress: gameStore.walletAddress,
-        players: parseInt(formValues.players),
-        minBet: parseInt(formValues.minBet),
-        betAmount: parseInt(formValues.betAmount),
-        password: formValues.password || null
-      };
+    if (!minBet) return;
+    const minBetNumber = Number(minBet); // **確保 minBet 是數字**
 
-      const { data } = await axios.post(`${process.env.VUE_APP_API_URL}/create-room`, payload);
-
-      if (data.success) {
-        console.log('成功建立房間，ID: ', data.roomId);
-        // 自動跳轉至房間
-        router.push(`/pvp/${data.roomId}`);
-      } else {
-        Swal.fire('錯誤', data.message, 'error');
+    // 下注金額（必須 ≥ minBet，且為正整數）
+    const { value: betAmount } = await Swal.fire({
+      title: '下注金額',
+      input: 'number',
+      inputPlaceholder: `請輸入下注金額 (至少 ${minBetNumber} TC)`,
+      inputAttributes: {
+        min: minBetNumber, // 限制最小輸入值
+        step: 1
+      },
+      showCancelButton: true,
+      inputValidator: (value) => {
+        const numericValue = Number(value);
+        if (!numericValue || numericValue < minBetNumber || !Number.isInteger(numericValue)) {
+          return `下注金額必須是正整數，且不小於 ${minBetNumber} TC`;
+        }
       }
+    });
+
+    if (!betAmount) return;
+    const betAmountNumber = Number(betAmount); // **確保 betAmount 是數字**
+
+    // 房間密碼（可選）
+    const { value: password } = await Swal.fire({
+      title: '房間密碼（選填）',
+      input: 'text',
+      inputPlaceholder: '4 位英數密碼（可留空）',
+      inputAttributes: {
+        maxlength: 4
+      },
+      showCancelButton: true,
+      inputValidator: (value) => {
+        if (value && !/^[a-zA-Z0-9]{4}$/.test(value)) {
+          return '密碼必須是 4 位的英文字母或數字';
+        }
+      }
+    });
+
+    // **構建請求 Payload**
+    const payload = {
+      walletAddress: gameStore.walletAddress,
+      players: parseInt(players),
+      minBet: minBetNumber,
+      betAmount: betAmountNumber,
+      password: password || null
+    };
+
+    console.log("Final Values:", payload);
+
+    // **發送 API 請求**
+    const { data } = await axios.post(`${process.env.VUE_APP_API_URL}/create-room`, payload);
+
+    if (data.success) {
+      console.log('成功建立房間，ID: ', data.roomId);
+      router.push(`/pvp/${data.roomId}`);
+    } else {
+      Swal.fire('錯誤', data.message, 'error');
     }
   } catch (error) {
     console.error(error);
     Swal.fire('錯誤', '創建房間失敗', 'error');
   }
 }
+
+
 
 const joinRoom = async (room) => {
   const htmlContent = room.hasPassword
