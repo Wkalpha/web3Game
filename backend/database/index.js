@@ -23,6 +23,7 @@ const createReferralsTable = require('./tables/Referrals');
 const createRoomsTable = require('./tables/Rooms');
 const createClickTraceLogTable = require('./tables/ClickTraceLog');
 const createReserveTable = require('./tables/Reserve');
+const createPvPGameLogTable = require('./tables/PvPGameLog');
 
 // 環境變數
 const DB_HOST = process.env.DB_HOST || '127.0.0.1';
@@ -83,6 +84,7 @@ async function initializeDatabase() {
         await createRoomsTable();
         await createClickTraceLogTable();
         await createReserveTable();
+        await createPvPGameLogTable();
         
         console.log('🎉 所有表、函數、事件初始化完成');
         

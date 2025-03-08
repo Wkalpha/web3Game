@@ -24,6 +24,28 @@ const updateMainPrizePoolAmount = async (amount) => {
 };
 
 /**
+ * PvP開始後 更新主獎金池的金額
+ * @param {number} amount - 需要增加的金額 (ETH)
+ */
+const updateMainPrizePoolAmountAfterPvPGameStart = async (amount) => {
+    const sql = `UPDATE PrizePool SET Amount = Amount + (?/10000) WHERE ID = 1`;
+    const [result] = await pool.execute(sql, [amount]);
+
+    // 如果有變更到 PrizePool 表的金額，則發送 WebSocket 通知
+    if (result.affectedRows > 0) {
+        // 獲取最新的 PrizePool 金額
+        const amount = await getMainPrizePoolAmount();
+        const message = {
+            event: 'PrizePoolUpdated',
+            data: {
+                prizePoolTimeCoin: amount
+            }
+        };
+        sendWebSocketMessage(message); // 發送 WebSocket 消息
+    }
+};
+
+/**
  * 抽獎後更新主獎金池的金額
  * @param {number} timeCoin
  */
@@ -143,5 +165,6 @@ module.exports = {
     getLeaderboardPrizePoolAmount,
     updateMainPrizePoolAmountAfterGameOver,
     updateMainPrizePoolAmountAfterWithdraw,
-    updateMainPrizePoolAmountAfterDrawPrize
+    updateMainPrizePoolAmountAfterDrawPrize,
+    updateMainPrizePoolAmountAfterPvPGameStart
 };

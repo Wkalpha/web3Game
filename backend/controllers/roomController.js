@@ -1,6 +1,8 @@
 // controllers/roomController.js
 const webSocketService = require('../services/webSocketService');
 const redisClient = require('../services/redis');
+const prizePoolModel = require('../models/prizePoolModel');
+const userModel = require('../models/userModel');
 
 const {
     createRoom,
@@ -223,6 +225,23 @@ exports.startGame = async (req, res) => {
             targetTimes.push(targetTime);
         }
         roomInfo.targetTime = targetTimes;
+
+        // 從 roomInfo 撈出所有 players 物件，並扣除玩家投入的 TC
+        for (const player of roomInfo.players) {
+            if (player.betAmount) {
+                // 調用 userModel.updateUserTimeCoin 來扣除玩家投入的 TC
+                // 這裡傳入負數代表扣除
+                await userModel.updateUserTimeCoin(-player.betAmount, player.walletAddress);
+            }
+        }
+
+        // 投注總金額的 10% 給房主
+        const giveToCreator = Math.floor(roomInfo.totalBet * 0.1);
+        await userModel.updateUserTimeCoin(giveToCreator, roomInfo.creator);
+        // 投入 5% 到獎池
+        const toPool = Math.floor(roomInfo.totalBet * 0.05);
+        await prizePoolModel.updateMainPrizePoolAmountAfterPvPGameStart(toPool);
+        console.log(giveToCreator, toPool)
 
         let websocketMsg = {
             event: 'PvPGameStart',

@@ -1,5 +1,7 @@
 const WebSocket = require('ws');
 const gameInfoModel = require('../models/gameInfoModel');
+const userModel = require('../models/userModel');
+const pvpGameLogModel = require('../models/pvpGameLogModel');
 const redisClient = require('../services/redis');
 const url = require('url'); // 解析 URL 查詢參數
 
@@ -129,7 +131,13 @@ class WebSocketService {
                                     roomInfo.winner = winner;
                                     roomInfo.gameOver = true;
 
-                                    // TODO 進行獎勵派發(房主抽成(10%)、派發給優勝者(85%)、獎金池(5%))、紀錄LOG...等
+                                    // 派發給優勝者(總獎金的85%)
+                                    const winnerTC = Math.floor(roomInfo.totalBet * 0.85);
+                                    await userModel.updateUserTimeCoin(winnerTC, winner);
+
+                                    // 紀錄LOG roomInfo 以 JSON 形式
+                                    console.log("遊戲結果JSON:",roomInfo);
+                                    pvpGameLogModel.insertIntoPvPGameLog(roomInfo);
                                 }
                             }
 
