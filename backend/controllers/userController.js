@@ -92,6 +92,10 @@ const findOrAddUser = async (req, res) => {
 
   try {
     const result = await userModel.findOrAdd(walletAddress);
+
+    // 更新每日登入任務
+    await dailyQuestModel.updateQuestProgress(walletAddress, 4);
+
     res.json({
       isNewUser: result.isNewUser,
       walletAddress: result.walletAddress,
